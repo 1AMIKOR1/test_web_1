@@ -1892,7 +1892,7 @@ window.CURRICULUM = {
       id: "sec-individual-project",
       icon: "🧭",
       title: "Создание индивидуального проекта",
-      description: "Подготовьте личный FastAPI-проект на основе шаблона: проанализируйте предметную область, создайте модели и миграцию, спроектируйте API и подключите схемы и роутеры.",
+      description: "Создайте личный FastAPI-проект на основе шаблона: проанализируйте предметную область, подготовьте модели, миграцию и API, реализуйте сервисы и репозитории с бизнес-логикой и проверками.",
       topics: [
         {
           id: "topic-individual-project-intro-analysis",
@@ -1907,6 +1907,13 @@ window.CURRICULUM = {
           title: "Модели сущностей, миграция и проектирование API",
           duration: "180 мин",
           lessonId: "lesson-individual-project-2"
+        },
+        {
+          id: "topic-individual-project-services-repositories",
+          icon: "🔧",
+          title: "Создание сервисов и репозиториев",
+          duration: "240 мин",
+          lessonId: "lesson-individual-project-3"
         }
       ]
     }
@@ -15202,6 +15209,828 @@ window.LESSONS = {
       {
         type: "text",
         html: "<p>Вы получили согласованную основу проекта: модель данных стала схемой БД с историей миграций, а пользовательские сценарии — контрактами и каркасом API. Следующий этап — подключить существующую аутентификацию, реализовать repositories и services, обеспечить транзакции и заменить 501 реальным поведением. Критерии из analysis.md и api-contract.md станут проверками успешных сценариев, ошибок и доступа.</p>"
+      }
+    ]
+  },
+
+  /* ------------------------------------------------------------------ */
+  "lesson-individual-project-3": {
+    id: "lesson-individual-project-3",
+    sectionId: "sec-individual-project",
+    title: "Создание сервисов и репозиториев",
+    blocks: [
+      {
+        type: "lead",
+        html: "<p>Во втором уроке вы создали модели, миграцию, схемы и каркас API. Теперь реализуем все сценарии блога «Буквица»: доступ к данным, бизнес-правила и подключение к HTTP. После занятия новые операции возвращают реальные результаты вместо 501. Каждый шаг повторяйте для сущностей своей темы.</p>"
+      },
+      {
+        type: "heading",
+        text: "Снова о слоях: от HTTP до базы данных"
+      },
+      {
+        type: "code",
+        lang: "text",
+        copyable: false,
+        text: "HTTP → Router → Service → DBManager → Repository → SQLAlchemy → DB"
+      },
+      {
+        type: "table",
+        caption: "Ответственность в одном запросе",
+        head: [
+          "Слой",
+          "Что делает",
+          "Пример"
+        ],
+        rows: [
+          [
+            "HTTP / Router",
+            "Принимает запрос, подключает зависимости, задаёт статус и схему ответа.",
+            "POST /posts/42/publish и текущий аккаунт."
+          ],
+          [
+            "Pydantic-схемы",
+            "Проверяют форму данных на границе HTTP, но не знают содержимое БД.",
+            "Положительные ID, допустимая роль, запрет лишних полей."
+          ],
+          [
+            "Service",
+            "Проверяет предметные правила, координирует изменения и подтверждает операцию.",
+            "Это свой draft блогера, текст заполнен, категории существуют."
+          ],
+          [
+            "DBManager",
+            "Предоставляет одну AsyncSession и набор репозиториев; commit, rollback и закрытие.",
+            "db.posts и db.categories используют один объект session."
+          ],
+          [
+            "Repository",
+            "Выполняет запросы и flush через переданную сессию.",
+            "Получить статью, заменить связи с категориями."
+          ],
+          [
+            "SQLAlchemy / DB",
+            "Формируют и исполняют SQL, обеспечивают ограничения и транзакцию.",
+            "INSERT, UPDATE, FK, UNIQUE и составной PK."
+          ]
+        ]
+      },
+      {
+        type: "text",
+        html: "<p>Стрелки помогают проследить путь операции, но <code>DBManager</code> не пересылает вызов по цепочке как сетевой посредник. Он создаёт контекст: сервис обращается к <code>self.db.posts</code>, а репозиторий использует общую сессию. Поэтому несколько записей можно подтвердить или откатить вместе.</p>"
+      },
+      {
+        type: "heading",
+        text: "Что должно работать после урока"
+      },
+      {
+        type: "list",
+        ordered: false,
+        items: [
+          "Объяснять DRY, выделять общие операции и расширять базовые классы без копирования CRUD.",
+          "Реализовать репозитории и сервисы users, categories, posts, comments, subscriptions и reactions.",
+          "Проверять роль, владельца, существование, видимость и переходы статусов в сервисах.",
+          "Выполнять связанные изменения одной транзакцией и формировать ответы без утечки внутренних полей.",
+          "Подключить все 24 новые операции второго урока и проверить успех, отказ и сохранность данных."
+        ]
+      },
+      {
+        type: "note",
+        tone: "info",
+        html: "<p><strong>Исходная точка:</strong> завершён второй урок, применена его миграция и проходят исходные тесты starter. Используем Python 3.11+, SQLAlchemy 2, Pydantic 2 и SQLite. Установленные зависимости менять не требуется. Модели, схемы, методы, пути и поля из второго урока сохраняем. Каталоги предметных модулей и пустые <code>__init__.py</code> уже созданы.</p>"
+      },
+      {
+        type: "note",
+        tone: "warning",
+        html: "<p><strong>Как работать с листингами:</strong> каждый блок с путём — полное содержимое указанного файла после этого шага. Сначала внесите весь согласованный набор, затем запускайте проверки: промежуточные импорты могут ссылаться на ещё не созданные файлы. Полные users/service.py, users/router.py и main.py сохраняют готовую аутентификацию starter. Если ваша копия уже расширена, перенесите изменения, сохранив собственные работающие сценарии.</p>"
+      },
+      {
+        type: "quiz",
+        id: "q1",
+        question: "При публикации нужно проверить автора и статус, сохранить изменения и вернуть HTTP-ответ. Как распределить работу?",
+        options: [
+          "Router проверяет владельца, Repository выбирает HTTP-код, Service открывает отдельную сессию для каждой таблицы.",
+          "Service проверяет правила и завершает общую транзакцию; Repository работает с данными; Router задаёт HTTP-контракт.",
+          "Pydantic самостоятельно находит автора в БД и подтверждает транзакцию.",
+          "DBManager определяет роли, а SQLAlchemy решает, можно ли читателю публиковать статью."
+        ],
+        correct: [
+          1
+        ],
+        multiple: false,
+        explanation: "Права и допустимость операции зависят от предметной области, поэтому их проверяет сервис. Репозиторий выполняет запросы через общую сессию DBManager. Роутер связывает результат с HTTP."
+      },
+      {
+        type: "heading",
+        text: "Шаг 1. DRY: сначала найдите настоящее повторение"
+      },
+      {
+        type: "text",
+        html: "<p><strong>DRY — Don’t Repeat Yourself, «не повторяйся».</strong> Одно правило или повторяющийся алгоритм должны иметь одно место реализации. Если одинаковый поиск и сохранение скопированы в шесть репозиториев, исправление придётся повторять шесть раз. Но похожие названия методов ещё не означают одинаковые бизнес-правила: публикация статьи и установка реакции остаются разными сценариями.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: false,
+        text: "from app.categories.models import Category\nfrom app.users.models import User\n\n\nasync def find_user(session, identity):\n    return await session.get(User, identity)\n\n\nasync def find_category(session, identity):\n    return await session.get(Category, identity)"
+      },
+      {
+        type: "text",
+        html: "<p>В этих функциях меняется только модель. Перенесём алгоритм в <code>BaseRepository.get_by_id()</code>, а модель укажем в наследнике. Вызов <code>super()</code> позволяет использовать готовый алгоритм и при необходимости ограничить параметры в предметном классе.</p>"
+      },
+      {
+        type: "heading",
+        text: "Общий репозиторий: одна реализация доступа к данным"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/repository.py\nfrom typing import Any\n\nfrom sqlalchemy import delete, select\nfrom sqlalchemy.ext.asyncio import AsyncSession\n\n\nclass BaseRepository:\n    model: Any\n\n    def __init__(self, session: AsyncSession):\n        self.session = session\n\n    async def get_by_id(self, identity):\n        return await self.session.get(self.model, identity)\n\n    async def get_one_or_none(self, **filter_by):\n        if not filter_by:\n            raise ValueError(\"Specify lookup conditions\")\n        return await self.session.scalar(select(self.model).filter_by(**filter_by))\n\n    async def get_all(self, *filters, order_by=(), offset=0, limit=20, **filter_by):\n        result = await self.session.scalars(\n            select(self.model)\n            .where(*filters)\n            .filter_by(**filter_by)\n            .order_by(*order_by)\n            .offset(offset)\n            .limit(limit)\n        )\n        return list(result.all())\n\n    async def create(self, **values: Any) -> Any:\n        instance = self.model(**values)\n        self.session.add(instance)\n        await self.session.flush()\n        await self.session.refresh(instance)\n        return instance\n\n    async def update(self, instance, **values):\n        for key, value in values.items():\n            setattr(instance, key, value)\n        await self.session.flush()\n        await self.session.refresh(instance)\n        return instance\n\n    async def delete(self, **filter_by) -> bool:\n        if not filter_by:\n            raise ValueError(\"Specify deletion conditions\")\n        result = await self.session.execute(delete(self.model).filter_by(**filter_by))\n        return result.rowcount > 0"
+      },
+      {
+        type: "text",
+        html: "<p><code>self.model</code> задаётся наследником, <code>self.session</code> — конструктором. Поэтому <code>get_by_id(42)</code> работает с обычным ключом, а <code>get_by_id((user_id, post_id))</code> — с составным ключом реакции. Порядок значений соответствует порядку колонок PK в модели. <code>get_one_or_none()</code> применяйте к уникальному ключу или набору условий, который определяет не более одной строки.</p><p>Репозиторий получает только значения, подготовленные сервисом из проверенной схемы. Вход HTTP нельзя напрямую превращать в произвольные фильтры или изменяемые поля. Удаление требует явных условий: пустой словарь не должен удалить всю таблицу.</p>"
+      },
+      {
+        type: "note",
+        tone: "info",
+        html: "<p><code>flush()</code> отправляет накопленные изменения в БД внутри текущей транзакции: можно получить id и обнаружить нарушение ограничения. Он <strong>не заменяет commit()</strong>. <code>refresh()</code> явно загружает сгенерированные значения, включая даты после UPDATE; это помогает не запускать неявный ввод-вывод при сборке ответа в async-коде.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 2. Общие ошибки и сервис без повторяющихся проверок"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/exceptions.py\nclass AuthenticationError(Exception):\n    pass\n\n\nclass DuplicateEmailError(Exception):\n    pass\n\n\nclass AppError(Exception):\n    def __init__(self, detail: str):\n        self.detail = detail\n        super().__init__(detail)\n\n\nclass AuthorizationError(AppError):\n    pass\n\n\nclass NotFoundError(AppError):\n    pass\n\n\nclass ConflictError(AppError):\n    pass"
+      },
+      {
+        type: "text",
+        html: "<p>Первые два исключения уже были в starter. Добавленные исключения хранят безопасное описание операции и не импортируют FastAPI. Преобразование в HTTP появится в main.py. Не включайте в detail SQL, хеши, токены или параметры подключения.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/service.py\nfrom datetime import UTC, datetime\n\nfrom app.db_manager import DBManager\nfrom app.exceptions import AuthorizationError, NotFoundError\n\n\nclass BaseService:\n    def __init__(self, db: DBManager):\n        self.db = db\n\n    @staticmethod\n    def require_role(user, *roles):\n        if user.role not in roles:\n            raise AuthorizationError(\"This role cannot perform the operation\")\n\n    @staticmethod\n    def require_found(instance, detail):\n        if instance is None:\n            raise NotFoundError(detail)\n        return instance\n\n    @staticmethod\n    def to_read(schema, instance, **extra):\n        values = {}\n        for name in schema.model_fields:\n            value = extra[name] if name in extra else getattr(instance, name)\n            if isinstance(value, datetime):\n                # SQLite хранит новые даты без смещения; в проекте это UTC.\n                value = (\n                    value.replace(tzinfo=UTC)\n                    if value.tzinfo is None\n                    else value.astimezone(UTC)\n                )\n            values[name] = value\n        return schema.model_validate(values)"
+      },
+      {
+        type: "text",
+        html: "<p><code>require_role()</code> и <code>require_found()</code> применяются в нескольких сервисах. <code>to_read()</code> берёт только поля заданной выходной схемы, добавляет явно подготовленные значения и приводит даты к UTC. В новых SQLite-таблицах дата без tzinfo по договорённости означает UTC; существующие ответы аутентификации оставляем как в starter.</p><p>Общий сервис не получает универсального «разрешить CRUD всем»: одинаковый SQL не делает одинаковыми полномочия. Например, только блогер создаёт статью, а комментарий может оставить любой вошедший пользователь. Эти условия принадлежат предметным сервисам.</p>"
+      },
+      {
+        type: "quiz",
+        id: "q2",
+        question: "Что правильно вынести в базовые классы, а что оставить в PostsService?",
+        options: [
+          "В BaseRepository — проверку роли blogger; в PostsService — создание AsyncSession.",
+          "В BaseService — разрешение любому наследнику редактировать любую сущность.",
+          "В BaseRepository — поиск и flush; в BaseService — общую проверку роли; в PostsService — владение статьёй и условия публикации.",
+          "В каждый класс скопировать весь CRUD: иначе наследование мешает DRY."
+        ],
+        correct: [
+          2
+        ],
+        multiple: false,
+        explanation: "Общими являются повторяемые механизмы. Проверка владельца конкретной статьи и её перехода draft → published выражает отдельное бизнес-правило, поэтому остаётся в PostsService."
+      },
+      {
+        type: "note",
+        tone: "tip",
+        html: "<p><strong>Для своей темы:</strong> Найдите повторение в своих будущих репозиториях. Оставьте общие запросы и проверки в базовых классах, а для каждого предметного наследника запишите, чем он отличается. Не создавайте отдельный CRUD для технической таблицы связи.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 3. Категории: наследование и конфликт уникальности"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/categories/repository.py\nfrom sqlalchemy import select\n\nfrom app.categories.models import Category\nfrom app.repository import BaseRepository\n\n\nclass CategoriesRepository(BaseRepository):\n    model = Category\n\n    async def existing_ids(self, ids: list[int]) -> set[int]:\n        if not ids:\n            return set()\n        result = await self.session.scalars(\n            select(Category.id).where(Category.id.in_(ids))\n        )\n        return set(result.all())"
+      },
+      {
+        type: "text",
+        html: "<p>CRUD уже унаследован. Единственное расширение — получить набор существующих ID: оно понадобится для проверки категорий статьи. Здесь нет пагинации, иначе проверка более двадцати выбранных категорий могла бы ошибочно считать часть из них отсутствующей.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/categories/service.py\nfrom sqlalchemy.exc import IntegrityError\n\nfrom app.categories.models import Category\nfrom app.categories.schemas import CategoryCreate, CategoryRead, CategoryUpdate\nfrom app.exceptions import ConflictError\nfrom app.service import BaseService\n\n\nclass CategoriesService(BaseService):\n    async def list_categories(self, offset=0, limit=20):\n        categories = await self.db.categories.get_all(\n            order_by=(Category.id,),\n            offset=offset,\n            limit=limit,\n        )\n        return [self.to_read(CategoryRead, item) for item in categories]\n\n    async def read_category(self, category_id: int):\n        category = self.require_found(\n            await self.db.categories.get_by_id(category_id),\n            \"Category not found\",\n        )\n        return self.to_read(CategoryRead, category)\n\n    async def create_category(self, data: CategoryCreate, user):\n        self.require_role(user, \"admin\")\n        try:\n            category = await self.db.categories.create(**data.model_dump())\n            await self.db.commit()\n        except IntegrityError as exc:\n            await self.db.rollback()\n            raise ConflictError(\"Category slug already exists\") from exc\n        return self.to_read(CategoryRead, category)\n\n    async def update_category(self, category_id: int, data: CategoryUpdate, user):\n        self.require_role(user, \"admin\")\n        category = self.require_found(\n            await self.db.categories.get_by_id(category_id),\n            \"Category not found\",\n        )\n        values = data.model_dump(exclude_unset=True)\n        if values:\n            try:\n                category = await self.db.categories.update(category, **values)\n                await self.db.commit()\n            except IntegrityError as exc:\n                await self.db.rollback()\n                raise ConflictError(\"Category slug already exists\") from exc\n        return self.to_read(CategoryRead, category)"
+      },
+      {
+        type: "text",
+        html: "<p>Чтение публичное, запись требует admin. Сервис преобразует отсутствие в NotFoundError, а нарушение уникальности slug — в ConflictError. Ограничение БД защищает и от двух конкурирующих попыток занять один slug. После IntegrityError вызываем rollback и сохраняем исходную ошибку через <code>raise ... from exc</code>. Пустой PATCH допустим и ничего не меняет.</p>"
+      },
+      {
+        type: "note",
+        tone: "tip",
+        html: "<p><strong>Для своей темы:</strong> Создайте репозиторий и сервис своего справочника. Покройте публичное чтение, права на запись, отсутствие строки и уникальный бизнес-ключ. Если справочника нет, выберите сущность с соответствующим сценарием из своего анализа.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 4. Статьи: запросы, категории и сборка ответа"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/posts/repository.py\nfrom sqlalchemy import delete, select\n\nfrom app.posts.models import Post, PostCategory\nfrom app.repository import BaseRepository\nfrom app.subscriptions.models import Subscription\n\n\nclass PostsRepository(BaseRepository):\n    model = Post\n\n    async def list_posts(\n        self,\n        *,\n        status=None,\n        author_id=None,\n        category_id=None,\n        subscriber_id=None,\n        offset=0,\n        limit=20,\n    ):\n        filters = []\n        if status is not None:\n            filters.append(Post.status == status)\n        if author_id is not None:\n            filters.append(Post.author_id == author_id)\n        if category_id is not None:\n            filters.append(\n                Post.id.in_(\n                    select(PostCategory.post_id).where(\n                        PostCategory.category_id == category_id,\n                    )\n                )\n            )\n        if subscriber_id is not None:\n            filters.append(\n                Post.author_id.in_(\n                    select(Subscription.author_id).where(\n                        Subscription.subscriber_id == subscriber_id,\n                    )\n                )\n            )\n        return await self.get_all(\n            *filters,\n            order_by=(Post.created_at.desc(), Post.id.desc()),\n            offset=offset,\n            limit=limit,\n        )\n\n    async def category_map(self, post_ids: list[int]) -> dict[int, list[int]]:\n        mapping = {post_id: [] for post_id in post_ids}\n        if not post_ids:\n            return mapping\n        result = await self.session.execute(\n            select(PostCategory.post_id, PostCategory.category_id)\n            .where(PostCategory.post_id.in_(post_ids))\n            .order_by(PostCategory.category_id)\n        )\n        for post_id, category_id in result:\n            mapping[post_id].append(category_id)\n        return mapping\n\n    async def replace_categories(self, post_id: int, category_ids: list[int]):\n        await self.session.execute(\n            delete(PostCategory).where(PostCategory.post_id == post_id)\n        )\n        self.session.add_all(\n            [\n                PostCategory(post_id=post_id, category_id=category_id)\n                for category_id in category_ids\n            ]\n        )\n        await self.session.flush()"
+      },
+      {
+        type: "text",
+        html: "<p>Репозиторий умеет ограничивать SQL-запрос статусом, автором, категорией и подписчиком. Решение, какие ограничения нужны текущему пользователю, принимает сервис. Для категории и подписки используются подзапросы: статья не дублируется в выдаче из-за нескольких строк связи.</p><p><code>category_map()</code> получает категории всей страницы одним запросом и возвращает отсортированные ID. Для страницы статей нужны один запрос к posts и один к post_categories, а не отдельный запрос для каждой статьи. <code>replace_categories()</code> удаляет старые связи и добавляет новые через ту же сессию без commit.</p>"
+      },
+      {
+        type: "heading",
+        text: "Сервис статей: вся логика жизненного цикла"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/posts/service.py\nfrom datetime import UTC, datetime\n\nfrom app.exceptions import AuthorizationError, ConflictError, NotFoundError\nfrom app.posts.schemas import PostCreate, PostRead, PostUpdate\nfrom app.service import BaseService\n\n\nclass PostsService(BaseService):\n    async def to_posts(self, posts):\n        categories = await self.db.posts.category_map([post.id for post in posts])\n        return [\n            self.to_read(PostRead, post, category_ids=categories[post.id])\n            for post in posts\n        ]\n\n    async def _read(self, post):\n        return (await self.to_posts([post]))[0]\n\n    async def _categories(self, category_ids):\n        ids = sorted(set(category_ids))\n        if await self.db.categories.existing_ids(ids) != set(ids):\n            raise NotFoundError(\"Category not found\")\n        return ids\n\n    @staticmethod\n    def _require_complete(title, body, category_ids):\n        if not title.strip() or not body.strip() or not category_ids:\n            raise ConflictError(\"Publication needs a title, body and category\")\n\n    async def _owned(self, post_id, user):\n        self.require_role(user, \"blogger\")\n        post = self.require_found(\n            await self.db.posts.get_by_id(post_id),\n            \"Post not found\",\n        )\n        if post.author_id != user.id:\n            raise AuthorizationError(\"Cannot change another author's post\")\n        return post\n\n    async def list_posts(self, offset=0, limit=20, category_id=None, author_id=None):\n        posts = await self.db.posts.list_posts(\n            status=\"published\",\n            category_id=category_id,\n            author_id=author_id,\n            offset=offset,\n            limit=limit,\n        )\n        return await self.to_posts(posts)\n\n    async def list_my_posts(self, user, offset=0, limit=20):\n        self.require_role(user, \"blogger\")\n        posts = await self.db.posts.list_posts(\n            author_id=user.id,\n            offset=offset,\n            limit=limit,\n        )\n        return await self.to_posts(posts)\n\n    async def read_post(self, post_id: int):\n        post = self.require_found(\n            await self.db.posts.get_by_id(post_id),\n            \"Post not found\",\n        )\n        if post.status != \"published\":\n            raise NotFoundError(\"Post not found\")\n        return await self._read(post)\n\n    async def create_post(self, data: PostCreate, user):\n        self.require_role(user, \"blogger\")\n        ids = await self._categories(data.category_ids)\n        post = await self.db.posts.create(\n            author_id=user.id,\n            title=data.title,\n            body=data.body,\n            status=\"draft\",\n        )\n        await self.db.posts.replace_categories(post.id, ids)\n        result = await self._read(post)\n        await self.db.commit()\n        return result\n\n    async def update_post(self, post_id: int, data: PostUpdate, user):\n        post = await self._owned(post_id, user)\n        if post.status == \"hidden\":\n            raise ConflictError(\"Hidden posts cannot be edited\")\n        values = data.model_dump(exclude_unset=True)\n        if not values:\n            return await self._read(post)\n        ids = (await self.db.posts.category_map([post.id]))[post.id]\n        if \"category_ids\" in values:\n            ids = await self._categories(values.pop(\"category_ids\"))\n        if post.status == \"published\":\n            self._require_complete(\n                values.get(\"title\", post.title),\n                values.get(\"body\", post.body),\n                ids,\n            )\n        post = await self.db.posts.update(\n            post,\n            **values,\n            updated_at=datetime.now(UTC).replace(tzinfo=None),\n        )\n        if \"category_ids\" in data.model_fields_set:\n            await self.db.posts.replace_categories(post.id, ids)\n        result = await self._read(post)\n        await self.db.commit()\n        return result\n\n    async def publish_post(self, post_id: int, user):\n        post = await self._owned(post_id, user)\n        if post.status != \"draft\":\n            raise ConflictError(\"Only a draft can be published\")\n        ids = (await self.db.posts.category_map([post.id]))[post.id]\n        self._require_complete(post.title, post.body, ids)\n        post = await self.db.posts.update(\n            post,\n            status=\"published\",\n            published_at=datetime.now(UTC).replace(tzinfo=None),\n        )\n        result = await self._read(post)\n        await self.db.commit()\n        return result\n\n    async def hide_post(self, post_id: int, user):\n        self.require_role(user, \"moderator\", \"admin\")\n        post = self.require_found(\n            await self.db.posts.get_by_id(post_id),\n            \"Post not found\",\n        )\n        if post.status != \"published\":\n            raise ConflictError(\"Only a published post can be hidden\")\n        post = await self.db.posts.update(post, status=\"hidden\")\n        result = await self._read(post)\n        await self.db.commit()\n        return result"
+      },
+      {
+        type: "table",
+        caption: "Что проверяется до записи",
+        head: [
+          "Операция",
+          "Правила"
+        ],
+        rows: [
+          [
+            "Публичное чтение",
+            "Только published. Отсутствующая, draft или hidden статья → 404; неизвестный фильтр → пустой список."
+          ],
+          [
+            "Свои материалы",
+            "Только blogger; все собственные статусы, включая hidden."
+          ],
+          [
+            "Создание",
+            "Blogger; author_id из аккаунта; draft; категории существуют, повторы ID убираются."
+          ],
+          [
+            "PATCH",
+            "Blogger и владелец; hidden запрещён; отсутствие поля сохраняет значение, [] очищает категории черновика."
+          ],
+          [
+            "Изменение published",
+            "После применения изменений остаются непустые title, body и хотя бы одна категория."
+          ],
+          [
+            "Публикация",
+            "Только свой draft; непустой текст, существующие категории, серверная дата. Повтор публикации → 409."
+          ],
+          [
+            "Скрытие",
+            "Moderator или admin; только published → hidden; текст и published_at сохраняются."
+          ]
+        ]
+      },
+      {
+        type: "text",
+        html: "<p>Статья обновляется вместе со связями; результат собирается до commit, чтобы ошибка формирования ответа не оставила уже сохранённую неполную операцию. Любое исключение до успешного commit приводит к откату контекстом DBManager. При PATCH сервис сначала проверяет итоговое состояние, а затем меняет строки.</p>"
+      },
+      {
+        type: "note",
+        tone: "info",
+        html: "<p>Модели второго урока не содержат relationship, поэтому репозиторий явно загружает нужные данные. <code>PostRead.model_validate(post)</code> сам по себе не создаст отсутствующее поле category_ids. Не добавляйте ленивую загрузку только ради возможности вернуть ORM-объект из роутера.</p>"
+      },
+      {
+        type: "quiz",
+        id: "q3",
+        question: "Опубликованной статье отправили PATCH только с новым title. Как должны измениться body и категории?",
+        options: [
+          "Сброситься к значениям по умолчанию, потому что клиент их не передал.",
+          "Остаться прежними: берём model_dump(exclude_unset=True), затем проверяем итоговую полноту published.",
+          "Стать NULL, а статус автоматически вернуться в draft.",
+          "Удалиться, если заголовок успешно прошёл Pydantic-валидацию."
+        ],
+        correct: [
+          1
+        ],
+        multiple: false,
+        explanation: "Непереданное поле означает отсутствие изменения. Явный null отклоняется схемой второго урока. Пустой category_ids — намерение очистить связи, которое допустимо для черновика, но нарушает условия опубликованной статьи."
+      },
+      {
+        type: "note",
+        tone: "tip",
+        html: "<p><strong>Для своей темы:</strong> Для своей основной сущности реализуйте весь жизненный цикл: списки с нужной видимостью, создание, изменение и действия со статусом. Составьте проверки «чужая строка», «неподходящая роль» и «недопустимое состояние».</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 5. Комментарии: доступность родительской статьи"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/comments/repository.py\nfrom app.comments.models import Comment\nfrom app.repository import BaseRepository\n\n\nclass CommentsRepository(BaseRepository):\n    model = Comment"
+      },
+      {
+        type: "text",
+        html: "<p>Здесь пока нет особого SQL: достаточно объявить модель и унаследовать общий репозиторий. Короткий наследник — законченная реализация, если общий алгоритм полностью покрывает нужные запросы.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/comments/service.py\nfrom app.comments.models import Comment\nfrom app.comments.schemas import CommentCreate, CommentRead\nfrom app.exceptions import ConflictError, NotFoundError\nfrom app.service import BaseService\n\n\nclass CommentsService(BaseService):\n    async def list_comments(self, post_id, offset=0, limit=20):\n        post = await self.db.posts.get_by_id(post_id)\n        if post is None or post.status != \"published\":\n            raise NotFoundError(\"Post not found\")\n        comments = await self.db.comments.get_all(\n            post_id=post_id,\n            status=\"visible\",\n            order_by=(Comment.id,),\n            offset=offset,\n            limit=limit,\n        )\n        return [self.to_read(CommentRead, item) for item in comments]\n\n    async def create_comment(self, data: CommentCreate, user):\n        post = self.require_found(\n            await self.db.posts.get_by_id(data.post_id),\n            \"Post not found\",\n        )\n        if post.status != \"published\":\n            raise ConflictError(\"Comments require a published post\")\n        comment = await self.db.comments.create(\n            post_id=post.id,\n            author_id=user.id,\n            body=data.body,\n            status=\"visible\",\n        )\n        result = self.to_read(CommentRead, comment)\n        await self.db.commit()\n        return result\n\n    async def hide_comment(self, comment_id, user):\n        self.require_role(user, \"moderator\", \"admin\")\n        comment = self.require_found(\n            await self.db.comments.get_by_id(comment_id),\n            \"Comment not found\",\n        )\n        if comment.status != \"visible\":\n            raise ConflictError(\"Comment is already hidden\")\n        comment = await self.db.comments.update(comment, status=\"hidden\")\n        result = self.to_read(CommentRead, comment)\n        await self.db.commit()\n        return result"
+      },
+      {
+        type: "text",
+        html: "<p>Публичный список не раскрывает комментарии draft или hidden статьи: возвращает 404. При записи различаем отсутствие статьи (404) и существующую статью в неподходящем состоянии (409). Автор комментария — текущий аккаунт, статус visible задаёт сервер. Скрытие проверяет полномочия и текущее состояние комментария, не меняя его текст.</p>"
+      },
+      {
+        type: "note",
+        tone: "tip",
+        html: "<p><strong>Для своей темы:</strong> Если дочерняя сущность зависит от состояния родительской, проверьте это в сервисе. FK доказывает существование строки, но не её доступность для действия пользователя.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 6. Подписки: составной ключ и повторяемый PUT"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/subscriptions/repository.py\nfrom sqlalchemy.dialects.sqlite import insert\n\nfrom app.repository import BaseRepository\nfrom app.subscriptions.models import Subscription\n\n\nclass SubscriptionsRepository(BaseRepository):\n    model = Subscription\n\n    async def set_subscription(self, subscriber_id, author_id):\n        await self.session.execute(\n            insert(Subscription)\n            .values(subscriber_id=subscriber_id, author_id=author_id)\n            .on_conflict_do_nothing(index_elements=[\"subscriber_id\", \"author_id\"])\n        )\n        return await self.get_one_or_none(\n            subscriber_id=subscriber_id,\n            author_id=author_id,\n        )"
+      },
+      {
+        type: "text",
+        html: "<p>SQLite INSERT ... ON CONFLICT DO NOTHING адресует ровно составной PK <code>(subscriber_id, author_id)</code>. Повторная установка не создаёт строку и не меняет created_at. После SQL читаем существующую или созданную запись. Обычная предварительная проверка наличия сама по себе не защищала бы от параллельных вставок.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/subscriptions/service.py\nfrom app.exceptions import ConflictError\nfrom app.posts.service import PostsService\nfrom app.service import BaseService\nfrom app.subscriptions.models import Subscription\nfrom app.subscriptions.schemas import SubscriptionRead\n\n\nclass SubscriptionsService(BaseService):\n    async def list_subscriptions(self, user, offset=0, limit=20):\n        subscriptions = await self.db.subscriptions.get_all(\n            subscriber_id=user.id,\n            order_by=(Subscription.created_at.desc(), Subscription.author_id),\n            offset=offset,\n            limit=limit,\n        )\n        return [self.to_read(SubscriptionRead, item) for item in subscriptions]\n\n    async def feed(self, user, offset=0, limit=20):\n        posts = await self.db.posts.list_posts(\n            status=\"published\",\n            subscriber_id=user.id,\n            offset=offset,\n            limit=limit,\n        )\n        return await PostsService(self.db).to_posts(posts)\n\n    async def set_subscription(self, author_id, user):\n        author = self.require_found(\n            await self.db.users.get_by_id(author_id),\n            \"Author not found\",\n        )\n        if author.id == user.id or author.role != \"blogger\":\n            raise ConflictError(\"Subscribe to another user with the blogger role\")\n        subscription = await self.db.subscriptions.set_subscription(user.id, author.id)\n        result = self.to_read(SubscriptionRead, subscription)\n        await self.db.commit()\n        return result\n\n    async def delete_subscription(self, author_id, user):\n        await self.db.subscriptions.delete(subscriber_id=user.id, author_id=author_id)\n        await self.db.commit()"
+      },
+      {
+        type: "text",
+        html: "<p>Подписчик определяется текущим аккаунтом. Подписка на себя или на не-блогера даёт 409, отсутствующий автор — 404. В ленте только published выбранных авторов. Сборку PostRead повторно использует PostsService: в этом вызове он только формирует ответы и не начинает новую транзакцию. Удаление всегда ограничено своей парой ключей; отсутствие связи не является ошибкой.</p>"
+      },
+      {
+        type: "note",
+        tone: "tip",
+        html: "<p><strong>Для своей темы:</strong> Для своей связи с составным ключом явно определите повторы. Если запрос устанавливает состояние, повтор не должен создавать дубликаты или менять первоначальную дату без требования предметной области.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 7. Реакции: обновить состояние, сохранив время"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/reactions/repository.py\nfrom sqlalchemy.dialects.sqlite import insert\n\nfrom app.reactions.models import Reaction\nfrom app.repository import BaseRepository\n\n\nclass ReactionsRepository(BaseRepository):\n    model = Reaction\n\n    async def set_reaction(self, user_id, post_id, kind):\n        statement = insert(Reaction).values(user_id=user_id, post_id=post_id, kind=kind)\n        await self.session.execute(\n            statement.on_conflict_do_update(\n                index_elements=[\"user_id\", \"post_id\"],\n                set_={\"kind\": statement.excluded.kind},\n            )\n        )\n        # Core UPSERT мог изменить уже загруженный объект в identity map.\n        reaction = await self.get_one_or_none(user_id=user_id, post_id=post_id)\n        await self.session.refresh(reaction)\n        return reaction"
+      },
+      {
+        type: "text",
+        html: "<p>Для реакции нужен ON CONFLICT DO UPDATE: изменяем только kind, а created_at остаётся прежним. Явно обновляем ORM-объект через refresh: SQL-запрос Core может изменить строку, которая уже присутствует в identity map с прежними значениями. Конфликт на другом ограничении не скрывается этим UPSERT.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/reactions/service.py\nfrom app.exceptions import ConflictError, NotFoundError\nfrom app.reactions.schemas import ReactionRead, ReactionSet\nfrom app.service import BaseService\n\n\nclass ReactionsService(BaseService):\n    async def read_reaction(self, post_id, user):\n        post = await self.db.posts.get_by_id(post_id)\n        if post is None or post.status != \"published\":\n            raise NotFoundError(\"Post not found\")\n        reaction = self.require_found(\n            await self.db.reactions.get_one_or_none(user_id=user.id, post_id=post_id),\n            \"Reaction not found\",\n        )\n        return self.to_read(ReactionRead, reaction)\n\n    async def set_reaction(self, post_id, data: ReactionSet, user):\n        post = self.require_found(\n            await self.db.posts.get_by_id(post_id),\n            \"Post not found\",\n        )\n        if post.status != \"published\":\n            raise ConflictError(\"Reactions require a published post\")\n        reaction = await self.db.reactions.set_reaction(user.id, post.id, data.kind)\n        result = self.to_read(ReactionRead, reaction)\n        await self.db.commit()\n        return result\n\n    async def delete_reaction(self, post_id, user):\n        await self.db.reactions.delete(user_id=user.id, post_id=post_id)\n        await self.db.commit()"
+      },
+      {
+        type: "text",
+        html: "<p>Чтение своей реакции требует публично доступной статьи и существующей реакции, иначе 404. Установка для существующей draft или hidden статьи даёт 409. Снять свою реакцию можно и после скрытия статьи: DELETE удаляет только собственную связь и при повторе возвращает тот же успешный 204. Список допустимых kind уже ограничен схемой ReactionSet.</p>"
+      },
+      {
+        type: "note",
+        tone: "tip",
+        html: "<p><strong>Для своей темы:</strong> Разделите проверки формы запроса, правил действия и ограничений БД. Для каждой связи проверьте повтор установки, изменение состояния, снятие и попытку затронуть чужую запись.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 8. Пользователи: расширяем готовый модуль"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/users/repository.py\nfrom app.repository import BaseRepository\nfrom app.users.models import User\n\n\nclass UsersRepository(BaseRepository):\n    model = User\n\n    async def get_by_email(self, email: str) -> User | None:\n        return await self.get_one_or_none(email=email)\n\n    async def create(self, *, email: str, password_hash: str) -> User:\n        return await super().create(email=email, password_hash=password_hash)"
+      },
+      {
+        type: "text",
+        html: "<p>Поиск по ID теперь унаследован. <code>get_by_email()</code> использует общий запрос, а create сохраняет прежний контракт email/password_hash, от которого зависит регистрация. Default reader из модели и миграции второго урока назначает роль новому аккаунту; клиент публичной регистрации не управляет ролью.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/users/service.py\nimport secrets\nfrom datetime import UTC, datetime, timedelta\n\nfrom jose import JWTError, jwt\nfrom passlib.context import CryptContext\nfrom passlib.exc import UnknownHashError\nfrom sqlalchemy.exc import IntegrityError\n\nfrom app.config import settings\nfrom app.exceptions import AuthenticationError, DuplicateEmailError\nfrom app.service import BaseService\nfrom app.users.models import User\nfrom app.users.schemas import (\n    ProfileUpdate,\n    PublicUserRead,\n    RefreshRequest,\n    RoleUpdate,\n    TokenPair,\n    UserLogin,\n    UserRegister,\n)\n\n\nclass UsersService(BaseService):\n    password_context = CryptContext(schemes=[\"bcrypt\"], deprecated=\"auto\")\n\n    @staticmethod\n    def normalize_email(email: str) -> str:\n        return email.strip().casefold()\n\n    def hash_password(self, password: str) -> str:\n        return self.password_context.hash(password)\n\n    def verify_password(self, password: str, password_hash: str) -> bool:\n        try:\n            return self.password_context.verify(password, password_hash)\n        except (TypeError, ValueError, UnknownHashError):\n            return False\n\n    def _create_token(self, user: User, token_type: str, lifetime: timedelta) -> str:\n        now = datetime.now(UTC)\n        payload = {\n            \"sub\": str(user.id),\n            \"type\": token_type,\n            \"exp\": now + lifetime,\n            \"jti\": secrets.token_urlsafe(16),\n        }\n        return jwt.encode(\n            payload,\n            settings.jwt_secret,\n            algorithm=settings.jwt_algorithm,\n        )\n\n    def _token_pair(self, user: User) -> TokenPair:\n        return TokenPair(\n            access_token=self._create_token(\n                user,\n                \"access\",\n                timedelta(minutes=settings.access_token_expire_minutes),\n            ),\n            refresh_token=self._create_token(\n                user,\n                \"refresh\",\n                timedelta(days=settings.refresh_token_expire_days),\n            ),\n        )\n\n    def _decode_token(self, token: str, expected_type: str) -> int:\n        try:\n            payload = jwt.decode(\n                token,\n                settings.jwt_secret,\n                algorithms=[settings.jwt_algorithm],\n            )\n        except (JWTError, TypeError, ValueError) as exc:\n            raise AuthenticationError from exc\n\n        if payload.get(\"type\") != expected_type or not payload.get(\"jti\"):\n            raise AuthenticationError\n\n        try:\n            user_id = int(payload[\"sub\"])\n        except (KeyError, TypeError, ValueError) as exc:\n            raise AuthenticationError from exc\n        if user_id <= 0 or not payload.get(\"exp\"):\n            raise AuthenticationError\n        return user_id\n\n    async def register(self, data: UserRegister) -> User:\n        email = self.normalize_email(str(data.email))\n        if await self.db.users.get_by_email(email) is not None:\n            raise DuplicateEmailError\n\n        try:\n            user = await self.db.users.create(\n                email=email,\n                password_hash=self.hash_password(data.password),\n            )\n            await self.db.commit()\n        except IntegrityError as exc:\n            await self.db.rollback()\n            raise DuplicateEmailError from exc\n        return user\n\n    async def login(self, data: UserLogin) -> TokenPair:\n        user = await self.db.users.get_by_email(self.normalize_email(str(data.email)))\n        if user is None:\n            self.password_context.dummy_verify()\n            raise AuthenticationError\n        if not self.verify_password(data.password, user.password_hash):\n            raise AuthenticationError\n        return self._token_pair(user)\n\n    async def refresh(self, data: RefreshRequest) -> TokenPair:\n        user_id = self._decode_token(data.refresh_token, \"refresh\")\n        user = await self.db.users.get_by_id(user_id)\n        if user is None:\n            raise AuthenticationError\n        return self._token_pair(user)\n\n    async def get_current_user(self, access_token: str) -> User:\n        user_id = self._decode_token(access_token, \"access\")\n        user = await self.db.users.get_by_id(user_id)\n        if user is None:\n            raise AuthenticationError\n        return user\n\n    async def read_public_profile(self, user_id: int):\n        user = self.require_found(\n            await self.db.users.get_by_id(user_id),\n            \"User not found\",\n        )\n        return self.to_read(PublicUserRead, user)\n\n    async def update_my_profile(self, data: ProfileUpdate, user):\n        user = await self.db.users.update(user, display_name=data.display_name)\n        result = self.to_read(PublicUserRead, user)\n        await self.db.commit()\n        return result\n\n    async def change_role(self, user_id: int, data: RoleUpdate, current_user):\n        self.require_role(current_user, \"admin\")\n        user = self.require_found(\n            await self.db.users.get_by_id(user_id),\n            \"User not found\",\n        )\n        old_role = user.role\n        user = await self.db.users.update(user, role=data.role)\n        if old_role == \"blogger\" and data.role != \"blogger\":\n            await self.db.subscriptions.delete(author_id=user.id)\n        result = self.to_read(PublicUserRead, user)\n        await self.db.commit()\n        return result"
+      },
+      {
+        type: "text",
+        html: "<p>Основная часть класса — готовая аутентификация starter: нормализация email, хеширование, access/refresh-токены и загрузка аккаунта. Новые методы в конце возвращают PublicUserRead, меняют своё имя и назначают роль только от имени admin. Публичный профиль не содержит email или password_hash.</p><p>В change_role сначала меняется роль, затем удаляются подписки на бывшего блогера и только после этого вызывается commit. Если очистка не удалась, старая роль и подписки сохранятся вместе. Статьи и комментарии не меняют author_id. JWT содержит идентификатор, а get_current_user каждый раз читает пользователя из БД: прежний токен не сохраняет снятые полномочия.</p>"
+      },
+      {
+        type: "note",
+        tone: "tip",
+        html: "<p><strong>Для своей темы:</strong> Дополните существующий аккаунт, не создавая вторую таблицу пользователей и не переписывая работающий вход. Реализуйте все последствия смены прав, указанные в анализе вашей темы.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 9. Одна сессия и одна граница транзакции"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/db_manager.py\nfrom typing import Self\n\nfrom sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker\n\nfrom app.categories.repository import CategoriesRepository\nfrom app.comments.repository import CommentsRepository\nfrom app.database import session_factory\nfrom app.posts.repository import PostsRepository\nfrom app.reactions.repository import ReactionsRepository\nfrom app.subscriptions.repository import SubscriptionsRepository\nfrom app.users.repository import UsersRepository\n\n\nclass DBManager:\n    def __init__(\n        self,\n        factory: async_sessionmaker[AsyncSession] = session_factory,\n    ):\n        self.factory = factory\n\n    async def __aenter__(self) -> Self:\n        self.session = self.factory()\n        self.users = UsersRepository(self.session)\n        self.categories = CategoriesRepository(self.session)\n        self.posts = PostsRepository(self.session)\n        self.comments = CommentsRepository(self.session)\n        self.subscriptions = SubscriptionsRepository(self.session)\n        self.reactions = ReactionsRepository(self.session)\n        return self\n\n    async def __aexit__(self, exc_type, exc_value, traceback) -> None:\n        try:\n            if self.session.in_transaction():\n                await self.session.rollback()\n        finally:\n            await self.session.close()\n\n    async def commit(self) -> None:\n        await self.session.commit()\n\n    async def rollback(self) -> None:\n        await self.session.rollback()"
+      },
+      {
+        type: "text",
+        html: "<p>Все шесть конструкторов получают один self.session. Сервис не открывает вторую сессию и не вызывает другой сервис, который отдельно подтверждает часть записи. Успешная операция делает один commit; выход с незавершённой транзакцией вызывает rollback, а finally закрывает сессию. Для чтения и пустого PATCH подтверждать нечего.</p>"
+      },
+      {
+        type: "codefill",
+        id: "cf1",
+        title: "Подтвердите связанную операцию",
+        code: "await db.posts.update(post, status=\"published\")\nawait db.posts.replace_categories(post.id, category_ids)\nawait db.___()",
+        options: [
+          "commit",
+          "rollback",
+          "close",
+          "flush"
+        ],
+        correct: [
+          0
+        ],
+        explanation: "Предполагается, что права, статус и данные уже проверены. Оба изменения подготовлены через одну сессию; commit подтверждает их вместе. Commit внутри первого репозитория сохранил бы лишь часть операции, а flush не делает изменения окончательными."
+      },
+      {
+        type: "heading",
+        text: "Зависимости: используем готовые DBDep и CurrentUser"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/dependencies.py\nfrom collections.abc import AsyncIterator\nfrom typing import Annotated\n\nfrom fastapi import Depends\nfrom fastapi.security import HTTPAuthorizationCredentials, HTTPBearer\n\nfrom app.db_manager import DBManager\nfrom app.exceptions import AuthenticationError\nfrom app.users.models import User\nfrom app.users.service import UsersService\n\n\nasync def get_db() -> AsyncIterator[DBManager]:\n    async with DBManager() as db:\n        yield db\n\n\nDBDep = Annotated[DBManager, Depends(get_db)]\nbearer = HTTPBearer(auto_error=False)\n\n\nasync def get_current_user(\n    db: DBDep,\n    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],\n) -> User:\n    if credentials is None or credentials.scheme.lower() != \"bearer\":\n        raise AuthenticationError\n    return await UsersService(db).get_current_user(credentials.credentials)\n\n\nCurrentUser = Annotated[User, Depends(get_current_user)]"
+      },
+      {
+        type: "text",
+        html: "<p>Это существующая зависимость starter. Не добавляйте use_cache=False: роутер и get_current_user должны получить один DBManager в рамках запроса. Зависимость yield управляет временем жизни, а commit остаётся в сервисе, до отправки успешного ответа. Не переносите подтверждение транзакции в код после yield.</p>"
+      },
+      {
+        type: "heading",
+        text: "SQLite: внешние ключи включаются на каждом соединении"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/database.py\nfrom sqlalchemy import event\nfrom sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine\nfrom sqlalchemy.orm import DeclarativeBase\n\nfrom app.config import settings\n\nengine: AsyncEngine = create_async_engine(settings.database_url)\n\n\ndef enable_foreign_keys(dbapi_connection, _connection_record):\n    cursor = dbapi_connection.cursor()\n    try:\n        cursor.execute(\"PRAGMA foreign_keys=ON\")\n    finally:\n        cursor.close()\n\n\nevent.listen(engine.sync_engine, \"connect\", enable_foreign_keys)\nsession_factory = async_sessionmaker(bind=engine, expire_on_commit=False)\n\n\nclass Base(DeclarativeBase):\n    pass\n\n\nasync def dispose_engine() -> None:\n    await engine.dispose()"
+      },
+      {
+        type: "text",
+        html: "<p>Сохраняем общий Base, настройки и session_factory. Обработчик connect включает PRAGMA foreign_keys=ON до использования соединения; запуск одной PRAGMA в произвольной сессии не настроил бы весь пул. Этот вариант предназначен для выбранного SQLite/aiosqlite. Проверки приложения не заменяют ограничения БД, а FK не заменяет проверку ролей и статусов.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 10. Подключите сервисы ко всем роутерам"
+      },
+      {
+        type: "text",
+        html: "<p>Ниже полные файлы после замены заглушек. Сохраняем пути, параметры, ограничения Path/Query и response_model второго урока. В новых обработчиках нет SQL, бизнес-ветвлений и 501; закрытые операции требуют CurrentUser и передают аккаунт сервису. Для проверки 422 используйте корректную аутентификацию: отказ зависимости может произойти раньше проверки тела.</p>"
+      },
+      {
+        type: "heading",
+        text: "Роутер: categories"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/categories/router.py\nfrom typing import Annotated\n\nfrom fastapi import APIRouter, Path, Query\n\nfrom app.categories.schemas import CategoryCreate, CategoryRead, CategoryUpdate\nfrom app.categories.service import CategoriesService\nfrom app.dependencies import CurrentUser, DBDep\n\nrouter = APIRouter(prefix=\"/categories\", tags=[\"categories\"])\n\n\n@router.get(\"\", response_model=list[CategoryRead], description=\"Доступ: публично.\")\nasync def list_categories(\n    db: DBDep,\n    offset: Annotated[int, Query(ge=0)] = 0,\n    limit: Annotated[int, Query(ge=1, le=100)] = 20,\n):\n    return await CategoriesService(db).list_categories(offset=offset, limit=limit)\n\n\n@router.get(\n    \"/{category_id}\", response_model=CategoryRead, description=\"Доступ: публично.\"\n)\nasync def read_category(db: DBDep, category_id: Annotated[int, Path(gt=0)]):\n    return await CategoriesService(db).read_category(category_id)\n\n\n@router.post(\n    \"\", response_model=CategoryRead, status_code=201, description=\"Доступ: admin.\"\n)\nasync def create_category(\n    db: DBDep, current_user: CurrentUser, payload: CategoryCreate\n):\n    return await CategoriesService(db).create_category(payload, current_user)\n\n\n@router.patch(\n    \"/{category_id}\", response_model=CategoryRead, description=\"Доступ: admin.\"\n)\nasync def update_category(\n    db: DBDep,\n    current_user: CurrentUser,\n    category_id: Annotated[int, Path(gt=0)],\n    payload: CategoryUpdate,\n):\n    return await CategoriesService(db).update_category(\n        category_id, payload, current_user\n    )"
+      },
+      {
+        type: "heading",
+        text: "Роутер: posts"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/posts/router.py\nfrom typing import Annotated\n\nfrom fastapi import APIRouter, Path, Query\n\nfrom app.dependencies import CurrentUser, DBDep\nfrom app.posts.schemas import PostCreate, PostRead, PostUpdate\nfrom app.posts.service import PostsService\n\nrouter = APIRouter(prefix=\"/posts\", tags=[\"posts\"])\n\n\n@router.get(\n    \"\", response_model=list[PostRead], description=\"Доступ: публично, только published.\"\n)\nasync def list_posts(\n    db: DBDep,\n    offset: Annotated[int, Query(ge=0)] = 0,\n    limit: Annotated[int, Query(ge=1, le=100)] = 20,\n    category_id: Annotated[int | None, Query(gt=0)] = None,\n    author_id: Annotated[int | None, Query(gt=0)] = None,\n):\n    return await PostsService(db).list_posts(\n        offset=offset, limit=limit, category_id=category_id, author_id=author_id\n    )\n\n\n@router.get(\n    \"/mine\", response_model=list[PostRead], description=\"Доступ: blogger, свои статьи.\"\n)\nasync def list_my_posts(\n    db: DBDep,\n    current_user: CurrentUser,\n    offset: Annotated[int, Query(ge=0)] = 0,\n    limit: Annotated[int, Query(ge=1, le=100)] = 20,\n):\n    return await PostsService(db).list_my_posts(\n        current_user, offset=offset, limit=limit\n    )\n\n\n@router.get(\n    \"/{post_id}\",\n    response_model=PostRead,\n    description=\"Доступ: публично, только published.\",\n)\nasync def read_post(db: DBDep, post_id: Annotated[int, Path(gt=0)]):\n    return await PostsService(db).read_post(post_id)\n\n\n@router.post(\n    \"\", response_model=PostRead, status_code=201, description=\"Доступ: blogger.\"\n)\nasync def create_post(db: DBDep, current_user: CurrentUser, payload: PostCreate):\n    return await PostsService(db).create_post(payload, current_user)\n\n\n@router.patch(\n    \"/{post_id}\",\n    response_model=PostRead,\n    description=\"Доступ: blogger, владелец draft или published.\",\n)\nasync def update_post(\n    db: DBDep,\n    current_user: CurrentUser,\n    post_id: Annotated[int, Path(gt=0)],\n    payload: PostUpdate,\n):\n    return await PostsService(db).update_post(post_id, payload, current_user)\n\n\n@router.post(\n    \"/{post_id}/publish\",\n    response_model=PostRead,\n    description=\"Доступ: blogger, владелец заполненного draft.\",\n)\nasync def publish_post(\n    db: DBDep, current_user: CurrentUser, post_id: Annotated[int, Path(gt=0)]\n):\n    return await PostsService(db).publish_post(post_id, current_user)\n\n\n@router.post(\n    \"/{post_id}/hide\",\n    response_model=PostRead,\n    description=\"Доступ: moderator или admin.\",\n)\nasync def hide_post(\n    db: DBDep, current_user: CurrentUser, post_id: Annotated[int, Path(gt=0)]\n):\n    return await PostsService(db).hide_post(post_id, current_user)"
+      },
+      {
+        type: "heading",
+        text: "Роутер: comments"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/comments/router.py\nfrom typing import Annotated\n\nfrom fastapi import APIRouter, Path, Query\n\nfrom app.comments.schemas import CommentCreate, CommentRead\nfrom app.comments.service import CommentsService\nfrom app.dependencies import CurrentUser, DBDep\n\nrouter = APIRouter(prefix=\"/comments\", tags=[\"comments\"])\n\n\n@router.get(\n    \"\",\n    response_model=list[CommentRead],\n    description=\"Доступ: публично, visible-комментарии published-статьи.\",\n)\nasync def list_comments(\n    db: DBDep,\n    post_id: Annotated[int, Query(gt=0)],\n    offset: Annotated[int, Query(ge=0)] = 0,\n    limit: Annotated[int, Query(ge=1, le=100)] = 20,\n):\n    return await CommentsService(db).list_comments(post_id, offset=offset, limit=limit)\n\n\n@router.post(\n    \"\",\n    response_model=CommentRead,\n    status_code=201,\n    description=\"Доступ: любой вошедший пользователь.\",\n)\nasync def create_comment(db: DBDep, current_user: CurrentUser, payload: CommentCreate):\n    return await CommentsService(db).create_comment(payload, current_user)\n\n\n@router.post(\n    \"/{comment_id}/hide\",\n    response_model=CommentRead,\n    description=\"Доступ: moderator или admin.\",\n)\nasync def hide_comment(\n    db: DBDep, current_user: CurrentUser, comment_id: Annotated[int, Path(gt=0)]\n):\n    return await CommentsService(db).hide_comment(comment_id, current_user)"
+      },
+      {
+        type: "heading",
+        text: "Роутер: subscriptions"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/subscriptions/router.py\nfrom typing import Annotated\n\nfrom fastapi import APIRouter, Path, Query, Response\n\nfrom app.dependencies import CurrentUser, DBDep\nfrom app.posts.schemas import PostRead\nfrom app.subscriptions.schemas import SubscriptionRead\nfrom app.subscriptions.service import SubscriptionsService\n\nrouter = APIRouter(prefix=\"/subscriptions\", tags=[\"subscriptions\"])\n\n\n@router.get(\n    \"\",\n    response_model=list[SubscriptionRead],\n    description=\"Доступ: любой вошедший пользователь, свои подписки.\",\n)\nasync def list_subscriptions(\n    db: DBDep,\n    current_user: CurrentUser,\n    offset: Annotated[int, Query(ge=0)] = 0,\n    limit: Annotated[int, Query(ge=1, le=100)] = 20,\n):\n    return await SubscriptionsService(db).list_subscriptions(\n        current_user, offset=offset, limit=limit\n    )\n\n\n@router.get(\n    \"/feed\",\n    response_model=list[PostRead],\n    description=\"Доступ: любой вошедший пользователь.\",\n)\nasync def read_subscription_feed(\n    db: DBDep,\n    current_user: CurrentUser,\n    offset: Annotated[int, Query(ge=0)] = 0,\n    limit: Annotated[int, Query(ge=1, le=100)] = 20,\n):\n    return await SubscriptionsService(db).feed(current_user, offset=offset, limit=limit)\n\n\n@router.put(\n    \"/{author_id}\",\n    response_model=SubscriptionRead,\n    description=\"Доступ: любой вошедший пользователь, другой аккаунт blogger.\",\n)\nasync def set_subscription(\n    db: DBDep, current_user: CurrentUser, author_id: Annotated[int, Path(gt=0)]\n):\n    return await SubscriptionsService(db).set_subscription(author_id, current_user)\n\n\n@router.delete(\n    \"/{author_id}\",\n    response_model=None,\n    status_code=204,\n    response_class=Response,\n    description=\"Доступ: любой вошедший пользователь, своя подписка.\",\n)\nasync def delete_subscription(\n    db: DBDep, current_user: CurrentUser, author_id: Annotated[int, Path(gt=0)]\n):\n    await SubscriptionsService(db).delete_subscription(author_id, current_user)\n    return Response(status_code=204)"
+      },
+      {
+        type: "heading",
+        text: "Роутер: reactions"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/reactions/router.py\nfrom typing import Annotated\n\nfrom fastapi import APIRouter, Path, Response\n\nfrom app.dependencies import CurrentUser, DBDep\nfrom app.reactions.schemas import ReactionRead, ReactionSet\nfrom app.reactions.service import ReactionsService\n\nrouter = APIRouter(prefix=\"/reactions\", tags=[\"reactions\"])\n\n\n@router.get(\n    \"/{post_id}\",\n    response_model=ReactionRead,\n    description=\"Доступ: любой вошедший пользователь, своя реакция.\",\n)\nasync def read_reaction(\n    db: DBDep, current_user: CurrentUser, post_id: Annotated[int, Path(gt=0)]\n):\n    return await ReactionsService(db).read_reaction(post_id, current_user)\n\n\n@router.put(\n    \"/{post_id}\",\n    response_model=ReactionRead,\n    description=\"Доступ: любой вошедший пользователь.\",\n)\nasync def set_reaction(\n    db: DBDep,\n    current_user: CurrentUser,\n    post_id: Annotated[int, Path(gt=0)],\n    payload: ReactionSet,\n):\n    return await ReactionsService(db).set_reaction(post_id, payload, current_user)\n\n\n@router.delete(\n    \"/{post_id}\",\n    response_model=None,\n    status_code=204,\n    response_class=Response,\n    description=\"Доступ: любой вошедший пользователь, своя реакция.\",\n)\nasync def delete_reaction(\n    db: DBDep, current_user: CurrentUser, post_id: Annotated[int, Path(gt=0)]\n):\n    await ReactionsService(db).delete_reaction(post_id, current_user)\n    return Response(status_code=204)"
+      },
+      {
+        type: "heading",
+        text: "Роутер: users"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/users/router.py\nfrom typing import Annotated\n\nfrom fastapi import APIRouter, Path, status\n\nfrom app.dependencies import CurrentUser, DBDep\nfrom app.users.schemas import (\n    ProfileUpdate,\n    PublicUserRead,\n    RefreshRequest,\n    RoleUpdate,\n    TokenPair,\n    UserLogin,\n    UserRead,\n    UserRegister,\n)\nfrom app.users.service import UsersService\n\nrouter = APIRouter(prefix=\"/users\", tags=[\"users\"])\n\n\n@router.post(\"/register\", status_code=status.HTTP_201_CREATED, response_model=UserRead)\nasync def register(data: UserRegister, db: DBDep) -> UserRead:\n    return await UsersService(db).register(data)\n\n\n@router.post(\"/login\", response_model=TokenPair)\nasync def login(data: UserLogin, db: DBDep) -> TokenPair:\n    return await UsersService(db).login(data)\n\n\n@router.post(\"/refresh\", response_model=TokenPair)\nasync def refresh(data: RefreshRequest, db: DBDep) -> TokenPair:\n    return await UsersService(db).refresh(data)\n\n\n@router.get(\"/me\", response_model=UserRead)\nasync def me(current_user: CurrentUser) -> UserRead:\n    return current_user\n\n\nprofile_router = APIRouter(prefix=\"/users\", tags=[\"profiles\"])\n\n\n@profile_router.patch(\n    \"/me/profile\",\n    response_model=PublicUserRead,\n    description=\"Доступ: любой вошедший пользователь.\",\n)\nasync def update_my_profile(\n    db: DBDep, current_user: CurrentUser, payload: ProfileUpdate\n):\n    return await UsersService(db).update_my_profile(payload, current_user)\n\n\n@profile_router.get(\n    \"/{user_id}/profile\", response_model=PublicUserRead, description=\"Доступ: публично.\"\n)\nasync def read_public_profile(db: DBDep, user_id: Annotated[int, Path(gt=0)]):\n    return await UsersService(db).read_public_profile(user_id)\n\n\n@profile_router.patch(\n    \"/{user_id}/role\",\n    response_model=PublicUserRead,\n    description=\"Доступ: только admin.\",\n)\nasync def update_user_role(\n    db: DBDep,\n    current_user: CurrentUser,\n    user_id: Annotated[int, Path(gt=0)],\n    payload: RoleUpdate,\n):\n    return await UsersService(db).change_role(user_id, payload, current_user)"
+      },
+      {
+        type: "text",
+        html: "<p>Статические пути /posts/mine и /subscriptions/feed остаются перед параметризованными маршрутами. Users/router.py содержит готовые /users/register, /users/login, /users/refresh и /users/me, а также отдельный profile_router. В DELETE вызывается сервис, затем возвращается Response(status_code=204), без JSON-тела.</p>"
+      },
+      {
+        type: "heading",
+        text: "Обработчики ошибок и подключение роутеров"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/main.py\nfrom collections.abc import AsyncIterator\nfrom contextlib import asynccontextmanager\n\nfrom fastapi import FastAPI, Request, status\nfrom fastapi.responses import JSONResponse\n\nfrom app.categories.router import router as categories_router\nfrom app.comments.router import router as comments_router\nfrom app.database import dispose_engine\nfrom app.exceptions import (\n    AppError,\n    AuthenticationError,\n    AuthorizationError,\n    ConflictError,\n    DuplicateEmailError,\n    NotFoundError,\n)\nfrom app.posts.router import router as posts_router\nfrom app.reactions.router import router as reactions_router\nfrom app.subscriptions.router import router as subscriptions_router\nfrom app.users.router import profile_router\nfrom app.users.router import router as users_router\n\n\n@asynccontextmanager\nasync def lifespan(_app: FastAPI) -> AsyncIterator[None]:\n    try:\n        yield\n    finally:\n        await dispose_engine()\n\n\napp = FastAPI(title=\"FastAPI Starter\", lifespan=lifespan)\n\n\n@app.exception_handler(AuthenticationError)\nasync def authentication_error_handler(\n    _request: Request, _exc: AuthenticationError\n) -> JSONResponse:\n    return JSONResponse(\n        status_code=status.HTTP_401_UNAUTHORIZED,\n        headers={\"WWW-Authenticate\": \"Bearer\"},\n        content={\"detail\": \"Invalid credentials\"},\n    )\n\n\n@app.exception_handler(DuplicateEmailError)\nasync def duplicate_email_error_handler(\n    _request: Request, _exc: DuplicateEmailError\n) -> JSONResponse:\n    return JSONResponse(\n        status_code=status.HTTP_409_CONFLICT,\n        content={\"detail\": \"Email already registered\"},\n    )\n\n\n@app.get(\"/health\", tags=[\"health\"])\nasync def health() -> dict[str, str]:\n    return {\"status\": \"ok\"}\n\n\napp.include_router(users_router)\n\n\n@app.exception_handler(AppError)\nasync def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:\n    codes = {AuthorizationError: 403, NotFoundError: 404, ConflictError: 409}\n    return JSONResponse(status_code=codes[type(exc)], content={\"detail\": exc.detail})\n\n\napp.include_router(categories_router)\napp.include_router(posts_router)\napp.include_router(comments_router)\napp.include_router(subscriptions_router)\napp.include_router(reactions_router)\napp.include_router(profile_router)"
+      },
+      {
+        type: "text",
+        html: "<p>Сохраняем lifespan, /health и прежние ответы аутентификации. Добавленный обработчик переводит предметные ошибки в 403, 404 и 409 с безопасным detail. HTTP-обёртка не прячет неизвестные ошибки под выдуманным успешным ответом. Если ваше приложение уже содержит дополнительные подключения или настройки, сохраните их при добавлении новых импортов и обработчика.</p>"
+      },
+      {
+        type: "table",
+        caption: "Контракт теперь выполняется",
+        head: [
+          "Условие",
+          "Результат"
+        ],
+        rows: [
+          [
+            "Нет действительного токена в защищённой операции",
+            "401 с WWW-Authenticate: Bearer."
+          ],
+          [
+            "Аккаунт известен, но роль или владелец не подходит",
+            "403."
+          ],
+          [
+            "Ресурс отсутствует; публичное чтение draft/hidden",
+            "404."
+          ],
+          [
+            "Запись к существующей неопубликованной статье; неправильный переход; занятый slug",
+            "409."
+          ],
+          [
+            "Неверная форма данных, лишние поля новых схем, явный null в PATCH",
+            "422 при корректной аутентификации."
+          ],
+          [
+            "Создана статья, категория или комментарий",
+            "201 и созданный ресурс."
+          ],
+          [
+            "Связь удалена или уже отсутствует",
+            "204 без тела."
+          ],
+          [
+            "Успешное чтение, изменение, публикация, скрытие или PUT",
+            "200 и схема результата; списки могут быть пустыми."
+          ]
+        ]
+      },
+      {
+        type: "note",
+        tone: "tip",
+        html: "<p><strong>Для своей темы:</strong> Замените все заглушки своего API вызовами сервисов, добавьте реальные зависимости и обновите описания OpenAPI. В docs/api-contract.md замените этап «каркас, сейчас 501» фактическими результатами; методы и пути должны совпадать с реализацией.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 11. Назначьте первого администратора локально"
+      },
+      {
+        type: "text",
+        html: "<p>Сначала зарегистрируйте предназначенный для администрирования аккаунт обычным способом. На своём локальном проекте после миграций выполните отдельный скрипт: он принимает email существующего reader, проверяет исходную роль и подтверждает назначение admin. Скрипт не добавляется как HTTP-маршрут. Для дальнейших назначений используется защищённый API.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# app/bootstrap_admin.py\nimport argparse\nimport asyncio\n\nfrom app.database import dispose_engine\nfrom app.db_manager import DBManager\nfrom app.users.service import UsersService\n\n\nasync def main(email: str):\n    try:\n        async with DBManager() as db:\n            user = await db.users.get_by_email(UsersService.normalize_email(email))\n            if user is None:\n                raise SystemExit(\"User not found: register the account first\")\n            if user.role != \"reader\":\n                raise SystemExit(\"Bootstrap expects a reader account\")\n            await db.users.update(user, role=\"admin\")\n            await db.commit()\n            print(\"Administrator assigned\")\n    finally:\n        await dispose_engine()\n\n\nif __name__ == \"__main__\":\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"email\")\n    asyncio.run(main(parser.parse_args().email))"
+      },
+      {
+        type: "code",
+        lang: "bash",
+        copyable: true,
+        text: "uv run python -m app.bootstrap_admin admin@example.com"
+      },
+      {
+        type: "note",
+        tone: "warning",
+        html: "<p>Замените учебный email адресом созданного вами аккаунта и убедитесь, что настройки указывают на вашу локальную базу. Пароль и JWT скрипту не нужны. Не используйте публичную регистрацию с параметром admin и не назначайте административные права произвольному ID без проверки. Повторный запуск для уже назначенного admin завершится отказом исходной проверки.</p>"
+      },
+      {
+        type: "heading",
+        text: "Шаг 12. Проверьте поведение на отдельной SQLite-базе"
+      },
+      {
+        type: "text",
+        html: "<p>Следующая фикстура заменяет tests/conftest.py. Она использует только SQLite в памяти, включает внешние ключи и переопределяет ту же get_db, которую используют и HTTP-обработчик, и аутентификация. Импорт main подключает модели всех модулей до create_all. Это тестовая подготовка схемы, а не замена Alembic для локальной базы.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# tests/conftest.py\nfrom collections.abc import AsyncIterator\n\nimport pytest_asyncio\nfrom httpx import ASGITransport, AsyncClient\nfrom sqlalchemy import event\nfrom sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine\nfrom sqlalchemy.pool import StaticPool\n\nfrom app.database import Base, enable_foreign_keys\nfrom app.db_manager import DBManager\nfrom app.dependencies import get_db\nfrom app.main import app\n\n\n@pytest_asyncio.fixture\nasync def db_factory():\n    engine = create_async_engine(\n        \"sqlite+aiosqlite:///:memory:\",\n        connect_args={\"check_same_thread\": False},\n        poolclass=StaticPool,\n    )\n    factory = async_sessionmaker(bind=engine, expire_on_commit=False)\n    event.listen(engine.sync_engine, \"connect\", enable_foreign_keys)\n\n    async with engine.begin() as connection:\n        await connection.run_sync(Base.metadata.create_all)\n\n    try:\n        yield factory\n    finally:\n        await engine.dispose()\n\n\n@pytest_asyncio.fixture\nasync def client(db_factory) -> AsyncIterator[AsyncClient]:\n\n    async def override_get_db() -> AsyncIterator[DBManager]:\n        async with DBManager(db_factory) as db:\n            yield db\n\n    app.dependency_overrides[get_db] = override_get_db\n    try:\n        async with AsyncClient(\n            transport=ASGITransport(app=app),\n            base_url=\"http://test\",\n        ) as test_client:\n            yield test_client\n    finally:\n        app.dependency_overrides.clear()"
+      },
+      {
+        type: "text",
+        html: "<p>Существующий tests/test_auth.py оставьте без изменений. Новый файл ниже проверяет работу всех модулей. Функция account назначает роли только в тестовой БД: это подготовка независимых случаев, а не разрешённый путь повышения прав в приложении.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# tests/test_blog.py\nimport pytest\nfrom sqlalchemy import func, select, text\nfrom sqlalchemy.exc import IntegrityError\n\nfrom app.db_manager import DBManager\nfrom app.exceptions import ConflictError\nfrom app.posts.models import Post, PostCategory\nfrom app.posts.repository import PostsRepository\nfrom app.posts.schemas import PostUpdate\nfrom app.posts.service import PostsService\nfrom app.subscriptions.models import Subscription\nfrom app.subscriptions.repository import SubscriptionsRepository\nfrom app.users.schemas import RoleUpdate\nfrom app.users.service import UsersService\n\n\nasync def account(client, factory, role, label=None):\n    email = f\"{label or role}@example.com\"\n    response = await client.post(\n        \"/users/register\",\n        json={\"email\": email, \"password\": \"secret123\"},\n    )\n    assert response.status_code == 201\n    user_id = response.json()[\"id\"]\n    # Только тестовая фикстура назначает роли напрямую, не публичная регистрация.\n    async with DBManager(factory) as db:\n        user = await db.users.get_by_id(user_id)\n        assert user.role == \"reader\"\n        await db.users.update(user, role=role)\n        await db.commit()\n    login = await client.post(\n        \"/users/login\",\n        json={\"email\": email, \"password\": \"secret123\"},\n    )\n    assert login.status_code == 200\n    return user_id, {\"Authorization\": f\"Bearer {login.json()['access_token']}\"}\n\n\nasync def category(client, headers, slug=\"python\"):\n    response = await client.post(\n        \"/categories\",\n        headers=headers,\n        json={\"name\": slug, \"slug\": slug},\n    )\n    assert response.status_code == 201\n    return response.json()[\"id\"]\n\n\nasync def post(client, headers, category_id, title=\"Статья\"):\n    response = await client.post(\n        \"/posts\",\n        headers=headers,\n        json={\"title\": title, \"body\": \"Текст статьи\", \"category_ids\": [category_id]},\n    )\n    assert response.status_code == 201\n    return response.json()[\"id\"]\n\n\nasync def test_profiles_and_categories(client, db_factory):\n    reader_id, reader = await account(client, db_factory, \"reader\")\n    _, admin = await account(client, db_factory, \"admin\")\n    public = await client.get(f\"/users/{reader_id}/profile\")\n    assert set(public.json()) == {\"id\", \"display_name\", \"role\"}\n    assert public.json()[\"role\"] == \"reader\"\n    assert (\n        await client.patch(\"/users/me/profile\", json={\"display_name\": \"Имя\"})\n    ).status_code == 401\n    changed = await client.patch(\n        \"/users/me/profile\",\n        headers=reader,\n        json={\"display_name\": \"  Читатель  \"},\n    )\n    assert changed.json()[\"display_name\"] == \"Читатель\"\n    assert (\n        await client.patch(\n            \"/users/me/profile\",\n            headers=reader,\n            json={\"display_name\": \"Имя\", \"role\": \"admin\"},\n        )\n    ).status_code == 422\n    assert (\n        await client.patch(\n            f\"/users/{reader_id}/role\",\n            headers=reader,\n            json={\"role\": \"admin\"},\n        )\n    ).status_code == 403\n    assert (\n        await client.patch(\n            \"/users/99999/role\",\n            headers=admin,\n            json={\"role\": \"reader\"},\n        )\n    ).status_code == 404\n    assert (await client.get(\"/users/99999/profile\")).status_code == 404\n    assert (\n        await client.post(\n            \"/categories\",\n            headers=reader,\n            json={\"name\": \"Python\", \"slug\": \"python\"},\n        )\n    ).status_code == 403\n    first = await category(client, admin)\n    second = await category(client, admin, \"fastapi\")\n    assert (await client.get(f\"/categories/{first}\")).json()[\"slug\"] == \"python\"\n    assert (await client.get(\"/categories/99999\")).status_code == 404\n    assert (await client.get(\"/categories?offset=1&limit=1\")).json()[0][\"id\"] == second\n    duplicate = await client.patch(\n        f\"/categories/{second}\",\n        headers=admin,\n        json={\"name\": \"Не сохранять\", \"slug\": \"python\"},\n    )\n    assert duplicate.status_code == 409\n    assert (await client.get(f\"/categories/{second}\")).json()[\"name\"] == \"fastapi\"\n    assert (\n        await client.post(\n            \"/categories\",\n            headers=admin,\n            json={\"name\": \"Повтор\", \"slug\": \"python\"},\n        )\n    ).status_code == 409\n    updated = await client.patch(\n        f\"/categories/{first}\", headers=admin, json={\"name\": \"Python 3\"}\n    )\n    assert updated.json()[\"slug\"] == \"python\"\n    assert (\n        await client.patch(f\"/categories/{first}\", headers=admin, json={})\n    ).status_code == 200\n    assert (\n        await client.patch(\n            f\"/categories/{first}\",\n            headers=admin,\n            json={\"slug\": None},\n        )\n    ).status_code == 422\n\n\nasync def test_post_lifecycle_and_visibility(client, db_factory):\n    author_id, author = await account(client, db_factory, \"blogger\")\n    _, other = await account(client, db_factory, \"blogger\", \"other\")\n    _, reader = await account(client, db_factory, \"reader\")\n    _, admin = await account(client, db_factory, \"admin\")\n    _, moderator = await account(client, db_factory, \"moderator\")\n    first = await category(client, admin)\n    second = await category(client, admin, \"fastapi\")\n    assert (await client.post(\"/posts\", json={\"title\": \"Черновик\"})).status_code == 401\n    assert (\n        await client.post(\"/posts\", headers=reader, json={\"title\": \"Черновик\"})\n    ).status_code == 403\n    assert (\n        await client.post(\"/posts\", headers=author, json={\"title\": \"   \"})\n    ).status_code == 422\n    assert (await client.get(\"/posts/mine\", headers=reader)).status_code == 403\n    assert (\n        await client.post(\n            \"/posts\",\n            headers=author,\n            json={\"title\": \"Ошибка\", \"category_ids\": [99999]},\n        )\n    ).status_code == 404\n    created = await client.post(\n        \"/posts\",\n        headers=author,\n        json={\"title\": \"Черновик\", \"category_ids\": [second, first, second]},\n    )\n    draft = created.json()\n    post_id = draft[\"id\"]\n    assert draft[\"author_id\"] == author_id\n    assert draft[\"status\"] == \"draft\" and draft[\"published_at\"] is None\n    assert draft[\"category_ids\"] == [first, second]\n    assert draft[\"created_at\"].endswith((\"Z\", \"+00:00\"))\n    assert (await client.get(f\"/posts/{post_id}\")).status_code == 404\n    assert (await client.get(\"/posts\")).json() == []\n    assert len((await client.get(\"/posts/mine\", headers=author)).json()) == 1\n    assert (\n        await client.post(f\"/posts/{post_id}/publish\", headers=author)\n    ).status_code == 409\n    assert (\n        await client.patch(\n            f\"/posts/{post_id}\", headers=other, json={\"body\": \"Чужая правка\"}\n        )\n    ).status_code == 403\n    assert (\n        await client.patch(f\"/posts/{post_id}\", headers=author, json={\"body\": None})\n    ).status_code == 422\n    updated = await client.patch(\n        f\"/posts/{post_id}\", headers=author, json={\"body\": \"Полный текст\"}\n    )\n    assert updated.json()[\"category_ids\"] == [first, second]\n    published = await client.post(f\"/posts/{post_id}/publish\", headers=author)\n    assert published.status_code == 200\n    assert published.json()[\"status\"] == \"published\"\n    assert published.json()[\"published_at\"].endswith((\"Z\", \"+00:00\"))\n    assert (\n        await client.post(f\"/posts/{post_id}/publish\", headers=author)\n    ).status_code == 409\n    assert (\n        await client.get(f\"/posts?category_id={first}&author_id={author_id}\")\n    ).json()[0][\"id\"] == post_id\n    assert (await client.get(\"/posts?category_id=99999\")).json() == []\n    assert (\n        await client.patch(\n            f\"/posts/{post_id}\", headers=author, json={\"category_ids\": []}\n        )\n    ).status_code == 409\n    assert (\n        await client.patch(f\"/posts/{post_id}\", headers=author, json={\"body\": \"  \"})\n    ).status_code == 409\n    changed = await client.patch(\n        f\"/posts/{post_id}\", headers=author, json={\"title\": \"Новое название\"}\n    )\n    assert changed.json()[\"body\"] == \"Полный текст\"\n    assert changed.json()[\"status\"] == \"published\"\n    assert (\n        await client.patch(f\"/posts/{post_id}\", headers=author, json={})\n    ).json() == changed.json()\n    comment = await client.post(\n        \"/comments\", headers=reader, json={\"post_id\": post_id, \"body\": \"Спасибо\"}\n    )\n    assert comment.status_code == 201\n    assert (\n        await client.post(f\"/posts/{post_id}/hide\", headers=author)\n    ).status_code == 403\n    hidden = await client.post(f\"/posts/{post_id}/hide\", headers=moderator)\n    assert hidden.json()[\"body\"] == \"Полный текст\"\n    assert hidden.json()[\"published_at\"] == published.json()[\"published_at\"]\n    assert (await client.get(f\"/posts/{post_id}\")).status_code == 404\n    assert (await client.get(f\"/comments?post_id={post_id}\")).status_code == 404\n    assert (\n        await client.post(f\"/posts/{post_id}/hide\", headers=admin)\n    ).status_code == 409\n    assert (\n        await client.patch(\n            f\"/posts/{post_id}\", headers=author, json={\"title\": \"Возврат\"}\n        )\n    ).status_code == 409\n    assert (\n        await client.post(f\"/posts/{post_id}/publish\", headers=author)\n    ).status_code == 409\n    assert (await client.get(\"/posts?limit=101\")).status_code == 422\n\n\nasync def test_comments_subscriptions_and_reactions(client, db_factory):\n    author_id, author = await account(client, db_factory, \"blogger\")\n    reader_id, reader = await account(client, db_factory, \"reader\")\n    _, admin = await account(client, db_factory, \"admin\")\n    _, moderator = await account(client, db_factory, \"moderator\")\n    category_id = await category(client, admin)\n    post_id = await post(client, author, category_id)\n    assert (\n        await client.post(\n            \"/comments\", headers=reader, json={\"post_id\": post_id, \"body\": \"Текст\"}\n        )\n    ).status_code == 409\n    assert (\n        await client.put(f\"/reactions/{post_id}\", headers=reader, json={\"kind\": \"like\"})\n    ).status_code == 409\n    await client.post(f\"/posts/{post_id}/publish\", headers=author)\n    created = await client.post(\n        \"/comments\", headers=reader, json={\"post_id\": post_id, \"body\": \"  Спасибо  \"}\n    )\n    comment = created.json()\n    assert comment[\"author_id\"] == reader_id and comment[\"body\"] == \"Спасибо\"\n    assert (await client.get(f\"/comments?post_id={post_id}\")).json()[0][\n        \"id\"\n    ] == comment[\"id\"]\n    assert (\n        await client.post(f\"/comments/{comment['id']}/hide\", headers=reader)\n    ).status_code == 403\n    hidden = await client.post(f\"/comments/{comment['id']}/hide\", headers=moderator)\n    assert hidden.json()[\"body\"] == \"Спасибо\" and hidden.json()[\"status\"] == \"hidden\"\n    assert (await client.get(f\"/comments?post_id={post_id}\")).json() == []\n    assert (\n        await client.post(f\"/comments/{comment['id']}/hide\", headers=admin)\n    ).status_code == 409\n    assert (await client.get(\"/comments\")).status_code == 422\n    assert (await client.get(\"/comments?post_id=99999\")).status_code == 404\n    assert (\n        await client.put(f\"/subscriptions/{author_id}\", headers=author)\n    ).status_code == 409\n    assert (\n        await client.put(f\"/subscriptions/{reader_id}\", headers=author)\n    ).status_code == 409\n    assert (await client.put(\"/subscriptions/99999\", headers=reader)).status_code == 404\n    first = await client.put(f\"/subscriptions/{author_id}\", headers=reader)\n    repeated = await client.put(f\"/subscriptions/{author_id}\", headers=reader)\n    assert first.status_code == 200 and repeated.json() == first.json()\n    assert len((await client.get(\"/subscriptions\", headers=reader)).json()) == 1\n    assert (await client.get(\"/subscriptions\", headers=author)).json() == []\n    assert (await client.get(\"/subscriptions/feed\", headers=reader)).json()[0][\n        \"id\"\n    ] == post_id\n    assert (\n        await client.get(f\"/reactions/{post_id}\", headers=reader)\n    ).status_code == 404\n    first = await client.put(\n        f\"/reactions/{post_id}\", headers=reader, json={\"kind\": \"like\"}\n    )\n    changed = await client.put(\n        f\"/reactions/{post_id}\", headers=reader, json={\"kind\": \"dislike\"}\n    )\n    assert changed.json()[\"kind\"] == \"dislike\"\n    assert changed.json()[\"created_at\"] == first.json()[\"created_at\"]\n    assert (\n        await client.get(f\"/reactions/{post_id}\", headers=reader)\n    ).json() == changed.json()\n    assert (\n        await client.put(f\"/reactions/{post_id}\", headers=reader, json={\"kind\": \"love\"})\n    ).status_code == 422\n    for _ in range(2):\n        deleted = await client.delete(f\"/reactions/{post_id}\", headers=reader)\n        assert deleted.status_code == 204 and deleted.content == b\"\"\n    await client.post(f\"/posts/{post_id}/hide\", headers=moderator)\n    assert (await client.get(\"/subscriptions/feed\", headers=reader)).json() == []\n    assert (\n        await client.get(f\"/reactions/{post_id}\", headers=reader)\n    ).status_code == 404\n    assert (\n        await client.put(f\"/reactions/{post_id}\", headers=reader, json={\"kind\": \"like\"})\n    ).status_code == 409\n    for _ in range(2):\n        deleted = await client.delete(f\"/subscriptions/{author_id}\", headers=reader)\n        assert deleted.status_code == 204 and deleted.content == b\"\"\n\n\nasync def test_role_change_cleans_subscriptions(client, db_factory):\n    author_id, author = await account(client, db_factory, \"blogger\")\n    _, reader = await account(client, db_factory, \"reader\")\n    _, admin = await account(client, db_factory, \"admin\")\n    category_id = await category(client, admin)\n    post_id = await post(client, author, category_id)\n    await client.post(f\"/posts/{post_id}/publish\", headers=author)\n    await client.put(f\"/subscriptions/{author_id}\", headers=reader)\n    changed = await client.patch(\n        f\"/users/{author_id}/role\", headers=admin, json={\"role\": \"reader\"}\n    )\n    assert changed.json()[\"role\"] == \"reader\"\n    assert (await client.get(\"/subscriptions\", headers=reader)).json() == []\n    assert (await client.get(\"/subscriptions/feed\", headers=reader)).json() == []\n    # Токен прежний, но роль берётся из БД на каждом запросе.\n    assert (\n        await client.post(\"/posts\", headers=author, json={\"title\": \"Нельзя\"})\n    ).status_code == 403\n    assert (await client.get(f\"/posts/{post_id}\")).json()[\"author_id\"] == author_id\n\n\nasync def test_shared_session_and_rollback(client, db_factory, monkeypatch):\n    author_id, author = await account(client, db_factory, \"blogger\")\n    _, reader = await account(client, db_factory, \"reader\")\n    admin_id, admin = await account(client, db_factory, \"admin\")\n    first = await category(client, admin)\n    second = await category(client, admin, \"fastapi\")\n    post_id = await post(client, author, first)\n    await client.post(f\"/posts/{post_id}/publish\", headers=author)\n    await client.put(f\"/subscriptions/{author_id}\", headers=reader)\n\n    async with DBManager(db_factory) as db:\n        repositories = (\n            db.users,\n            db.posts,\n            db.categories,\n            db.comments,\n            db.subscriptions,\n            db.reactions,\n        )\n        assert all(repository.session is db.session for repository in repositories)\n        assert await db.session.scalar(text(\"PRAGMA foreign_keys\")) == 1\n        with pytest.raises(ValueError):\n            await db.posts.delete()\n        await db.categories.create(name=\"Откат\", slug=\"rollback\")\n    async with DBManager(db_factory) as db:\n        assert await db.categories.get_one_or_none(slug=\"rollback\") is None\n        assert await db.reactions.get_by_id((99999, post_id)) is None\n\n    with pytest.raises(IntegrityError):\n        async with DBManager(db_factory) as db:\n            await db.posts.create(author_id=99999, title=\"Invalid foreign key\")\n\n    original_replace = PostsRepository.replace_categories\n\n    async def fail_after_categories(self, *args):\n        await original_replace(self, *args)\n        raise ConflictError(\"Injected failure after category writes\")\n\n    with monkeypatch.context() as patch:\n        patch.setattr(PostsRepository, \"replace_categories\", fail_after_categories)\n        with pytest.raises(ConflictError):\n            async with DBManager(db_factory) as db:\n                user = await db.users.get_by_id(author_id)\n                await PostsService(db).update_post(\n                    post_id,\n                    PostUpdate(title=\"Не сохранять\", category_ids=[second]),\n                    user,\n                )\n    async with DBManager(db_factory) as db:\n        assert (await db.posts.get_by_id(post_id)).title == \"Статья\"\n        assert (await db.posts.category_map([post_id]))[post_id] == [first]\n\n    original_delete = SubscriptionsRepository.delete\n\n    async def fail_after_delete(self, **filters):\n        await original_delete(self, **filters)\n        raise ConflictError(\"Injected failure after subscription deletion\")\n\n    with monkeypatch.context() as patch:\n        patch.setattr(SubscriptionsRepository, \"delete\", fail_after_delete)\n        with pytest.raises(ConflictError):\n            async with DBManager(db_factory) as db:\n                current_admin = await db.users.get_by_id(admin_id)\n                await UsersService(db).change_role(\n                    author_id, RoleUpdate(role=\"reader\"), current_admin\n                )\n    async with DBManager(db_factory) as db:\n        assert (await db.users.get_by_id(author_id)).role == \"blogger\"\n        assert (\n            await db.session.scalar(select(func.count()).select_from(Subscription)) == 1\n        )\n        assert await db.session.scalar(select(func.count()).select_from(Post)) == 1\n        assert (\n            await db.session.scalar(select(func.count()).select_from(PostCategory)) == 1\n        )\n\n\nasync def test_failed_commit_leaves_no_partial_publication(\n    client, db_factory, monkeypatch\n):\n    author_id, author = await account(client, db_factory, \"blogger\")\n    _, admin = await account(client, db_factory, \"admin\")\n    category_id = await category(client, admin)\n    post_id = await post(client, author, category_id)\n\n    async def fail_commit(self):\n        raise ConflictError(\"Injected failure before commit\")\n\n    with monkeypatch.context() as patch:\n        patch.setattr(DBManager, \"commit\", fail_commit)\n        with pytest.raises(ConflictError):\n            async with DBManager(db_factory) as db:\n                user = await db.users.get_by_id(author_id)\n                await PostsService(db).publish_post(post_id, user)\n    async with DBManager(db_factory) as db:\n        saved = await db.posts.get_by_id(post_id)\n        assert saved.status == \"draft\" and saved.published_at is None\n        assert (await db.posts.category_map([post_id]))[post_id] == [category_id]\n\n\nasync def test_local_admin_bootstrap(client, db_factory, monkeypatch):\n    from app import bootstrap_admin\n\n    user_id, _ = await account(client, db_factory, \"reader\")\n    monkeypatch.setattr(bootstrap_admin, \"DBManager\", lambda: DBManager(db_factory))\n    await bootstrap_admin.main(\"  READER@example.com  \")\n    async with DBManager(db_factory) as db:\n        assert (await db.users.get_by_id(user_id)).role == \"admin\"\n    with pytest.raises(SystemExit, match=\"Bootstrap expects a reader\"):\n        await bootstrap_admin.main(\"reader@example.com\")\n    with pytest.raises(SystemExit, match=\"User not found\"):\n        await bootstrap_admin.main(\"missing@example.com\")\n\n\ndef test_openapi_contract():\n    from app.main import app\n\n    expected = {\n        \"/posts\": {\"get\", \"post\"},\n        \"/posts/mine\": {\"get\"},\n        \"/posts/{post_id}\": {\"get\", \"patch\"},\n        \"/posts/{post_id}/publish\": {\"post\"},\n        \"/posts/{post_id}/hide\": {\"post\"},\n        \"/categories\": {\"get\", \"post\"},\n        \"/categories/{category_id}\": {\"get\", \"patch\"},\n        \"/comments\": {\"get\", \"post\"},\n        \"/comments/{comment_id}/hide\": {\"post\"},\n        \"/subscriptions\": {\"get\"},\n        \"/subscriptions/feed\": {\"get\"},\n        \"/subscriptions/{author_id}\": {\"put\", \"delete\"},\n        \"/reactions/{post_id}\": {\"get\", \"put\", \"delete\"},\n        \"/users/{user_id}/profile\": {\"get\"},\n        \"/users/me/profile\": {\"patch\"},\n        \"/users/{user_id}/role\": {\"patch\"},\n    }\n    api = app.openapi()\n    assert sum(len(methods) for methods in expected.values()) == 24\n    for path, methods in expected.items():\n        for method in methods:\n            assert \"501\" not in api[\"paths\"][path][method][\"responses\"]\n    seen = set()\n    for route in app.routes:\n        for method in getattr(route, \"methods\", set()):\n            key = (method, route.path)\n            assert key not in seen\n            seen.add(key)\n    assert (\n        \"content\"\n        not in api[\"paths\"][\"/reactions/{post_id}\"][\"delete\"][\"responses\"][\"204\"]\n    )"
+      },
+      {
+        type: "text",
+        html: "<p>Последние проверки искусственно выбрасывают ошибку после записи через репозиторий и до commit. Затем новая сессия читает сохранённые данные: заголовок и категории остаются прежними, роль и подписки откатываются вместе, неуспешная публикация остаётся draft без published_at. Это проверяет атомарность по результату, а не только число вызовов commit.</p>"
+      },
+      {
+        type: "heading",
+        text: "Обновите проверку маршрутов из второго урока"
+      },
+      {
+        type: "text",
+        html: "<p>Прежний tests/check_api_routes.py намеренно требовал объявленный 501. После реализации этот критерий устарел. Замените файл следующим вариантом: он проверяет все те же операции, отсутствие заглушек в OpenAPI, уникальность регистрации и пустой успешный DELETE.</p>"
+      },
+      {
+        type: "code",
+        lang: "python",
+        copyable: true,
+        text: "# tests/check_api_routes.py\n# tests/check_api_routes.py — uv run python -m tests.check_api_routes\nfrom app.main import app\n\nexpected = {\n    (\"GET\", \"/users/{user_id}/profile\"),\n    (\"PATCH\", \"/users/me/profile\"),\n    (\"PATCH\", \"/users/{user_id}/role\"),\n    (\"GET\", \"/posts\"),\n    (\"GET\", \"/posts/mine\"),\n    (\"GET\", \"/posts/{post_id}\"),\n    (\"POST\", \"/posts\"),\n    (\"PATCH\", \"/posts/{post_id}\"),\n    (\"POST\", \"/posts/{post_id}/publish\"),\n    (\"POST\", \"/posts/{post_id}/hide\"),\n    (\"GET\", \"/categories\"),\n    (\"GET\", \"/categories/{category_id}\"),\n    (\"POST\", \"/categories\"),\n    (\"PATCH\", \"/categories/{category_id}\"),\n    (\"GET\", \"/comments\"),\n    (\"POST\", \"/comments\"),\n    (\"POST\", \"/comments/{comment_id}/hide\"),\n    (\"GET\", \"/subscriptions\"),\n    (\"GET\", \"/subscriptions/feed\"),\n    (\"PUT\", \"/subscriptions/{author_id}\"),\n    (\"DELETE\", \"/subscriptions/{author_id}\"),\n    (\"GET\", \"/reactions/{post_id}\"),\n    (\"PUT\", \"/reactions/{post_id}\"),\n    (\"DELETE\", \"/reactions/{post_id}\"),\n}\napi = app.openapi()\nfor method, path in expected:\n    operation = api[\"paths\"][path][method.lower()]\n    assert \"501\" not in operation[\"responses\"], (method, path)\n\nseen = set()\nfor route in app.routes:\n    for method in getattr(route, \"methods\", set()):\n        key = (method, route.path)\n        assert key not in seen, f\"Duplicate route: {key}\"\n        seen.add(key)\nassert \"201\" in api[\"paths\"][\"/posts\"][\"post\"][\"responses\"]\ndeleted = api[\"paths\"][\"/reactions/{post_id}\"][\"delete\"][\"responses\"][\"204\"]\nassert \"content\" not in deleted\nfields = api[\"components\"][\"schemas\"][\"PostCreate\"][\"properties\"]\nassert \"author_id\" not in fields\nassert \"status\" not in fields\nprint(\"API route checks passed\")"
+      },
+      {
+        type: "code",
+        lang: "bash",
+        copyable: true,
+        text: "uv run python -m tests.check_api_schemas\nuv run python -m tests.check_api_routes\nuv run pytest\nuv run uvicorn app.main:app --reload"
+      },
+      {
+        type: "text",
+        html: "<p>tests/check_api_schemas.py — проверка из второго урока; её сценарии остаются актуальны. Сервер запускайте в отдельном терминале. В /docs зарегистрируйте пользователей, войдите и передайте access_token через Authorize как Bearer. Полный запрос можно выполнить и через curl с заголовком Authorization: Bearer и своим локальным токеном; не сохраняйте токены в репозитории.</p>"
+      },
+      {
+        type: "list",
+        ordered: true,
+        items: [
+          "Admin создаёт категорию, blogger создаёт draft и публикует его; анонимный посетитель видит published.",
+          "Другой blogger получает 403 на правку; пустой body или список категорий published даёт 409 без потери данных.",
+          "Reader комментирует, подписывается и меняет like на dislike; повтор PUT не создаёт вторую строку.",
+          "Moderator скрывает комментарий и статью: текст сохранён, публичные списки и лента их не показывают.",
+          "Admin снимает роль blogger: подписки на автора исчезают, старый токен не даёт ему право создать статью.",
+          "Повтор DELETE своей связи даёт пустой 204; исходные регистрация, вход, refresh и /users/me работают."
+        ]
+      },
+      {
+        type: "truefalse",
+        id: "tf1",
+        title: "Права, повторы и транзакции",
+        statements: [
+          {
+            text: "После flush изменения уже подтверждены, поэтому rollback не сможет их отменить.",
+            answer: false,
+            explanation: "Flush отправляет SQL внутри текущей транзакции. Окончательное подтверждение выполняет commit."
+          },
+          {
+            text: "Администратор может редактировать текст чужой статьи, потому что его роль выше роли блогера.",
+            answer: false,
+            explanation: "В выбранной модели admin управляет ролями, категориями и модерацией, но не правит чужой текст. Наследование прав не подразумевается само собой."
+          },
+          {
+            text: "Повтор PUT подписки возвращает одну связь с первоначальным created_at.",
+            answer: true,
+            explanation: "Составной PK и адресованный ON CONFLICT не позволяют создать дубликат; повтор не обновляет дату."
+          },
+          {
+            text: "Повтор DELETE своей отсутствующей реакции считается успешным и возвращает 204 без тела.",
+            answer: true,
+            explanation: "Итоговое состояние уже достигнуто. Удаление ограничено парой текущий пользователь–статья."
+          }
+        ]
+      },
+      {
+        type: "note",
+        tone: "tip",
+        html: "<p><strong>Для своей темы:</strong> Выполните успехи и отказы для каждой истории своей темы. Запишите в docs/api-contract.md фактические статусы и изменения БД. Проверяйте не только сообщение об ошибке, но и отсутствие частично сохранённых данных.</p>"
+      },
+      {
+        type: "heading",
+        text: "Частые ошибки и их причины"
+      },
+      {
+        type: "table",
+        caption: "Диагностика",
+        head: [
+          "Симптом",
+          "Что проверить"
+        ],
+        rows: [
+          [
+            "Часть операции сохранилась после ошибки",
+            "Commit внутри репозитория, разные сессии или подтверждение до завершения всех изменений."
+          ],
+          [
+            "После IntegrityError сессия не принимает запросы",
+            "Rollback перед продолжением работы; исходное исключение нельзя просто перехватить и забыть."
+          ],
+          [
+            "После PATCH исчез текст или категории",
+            "Exclude_unset и отдельную обработку category_ids; отсутствие поля не равно пустому списку."
+          ],
+          [
+            "Ответ PostRead не собирается или появляется MissingGreenlet",
+            "Явную загрузку category_ids и сгенерированных дат; отсутствие ленивого IO при сериализации."
+          ],
+          [
+            "Чужие draft попали в список или ленту",
+            "Ограничение published в сервисе и фильтры запроса; в /posts/mine — текущего автора."
+          ],
+          [
+            "После смены роли старый токен даёт прежние права",
+            "Загрузку пользователя из БД на каждом запросе вместо доверия роли из JWT."
+          ],
+          [
+            "Тест проверяет 501, хотя API работает",
+            "Актуальную версию check_api_routes.py и описания новых роутеров."
+          ],
+          [
+            "FK объявлен, но сиротская запись сохраняется",
+            "PRAGMA foreign_keys для каждого нового соединения, включая отдельный тестовый engine."
+          ]
+        ]
+      },
+      {
+        type: "heading",
+        text: "Что сдать после третьего урока"
+      },
+      {
+        type: "list",
+        ordered: true,
+        items: [
+          "В личном проекте — общие BaseRepository/BaseService, все предметные репозитории и сервисы с полной логикой обязательных сценариев.",
+          "Все операции контракта подключены к сервисам; роли и владелец проверяются, серверные поля не управляются клиентом, 501 удалён из новых обработчиков.",
+          "Одна сессия на запрос и одна граница записи; связанные изменения откатываются целиком; проверка FK включена.",
+          "В docs/api-contract.md записаны фактические ответы, правила повторов и результаты проверок; исходная аутентификация сохранена.",
+          "Тесты на отдельной БД проверяют успех, ошибки, права, видимость, повторы, частичное обновление и rollback. .env, токены и файлы локальной БД не попали в репозиторий."
+        ]
+      },
+      {
+        type: "heading",
+        text: "Источники и границы примера"
+      },
+      {
+        type: "text",
+        html: "<p>База листингов — учебный fastapi-starter-tmpl и контракт «Буквицы» предыдущих уроков. Проверенные API: <a href=\"https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html\" target=\"_blank\" rel=\"noopener\">SQLAlchemy AsyncSession и явная загрузка</a>, <a href=\"https://docs.sqlalchemy.org/en/20/orm/session_basics.html\" target=\"_blank\" rel=\"noopener\">flush, commit и rollback</a>, <a href=\"https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#insert-on-conflict-upsert\" target=\"_blank\" rel=\"noopener\">SQLite ON CONFLICT</a>, <a href=\"https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#foreign-key-support\" target=\"_blank\" rel=\"noopener\">SQLite foreign keys</a>, <a href=\"https://fastapi.tiangolo.com/tutorial/dependencies/sub-dependencies/#using-the-same-dependency-multiple-times\" target=\"_blank\" rel=\"noopener\">кэширование зависимостей FastAPI</a>, <a href=\"https://docs.pydantic.dev/latest/concepts/serialization/\" target=\"_blank\" rel=\"noopener\">Pydantic exclude_unset</a>.</p>"
+      },
+      {
+        type: "note",
+        tone: "info",
+        html: "<p>Это законченная учебная версия для согласованных сценариев, а не проверка под высокой нагрузкой. UPSERT привязан к выбранной SQLite. Роли, коды конфликтов и правила скрытия — решения «Буквицы», а не требования библиотек. Конкурентное редактирование одной статьи с контролем версии, физическое удаление материалов, восстановление hidden и смена СУБД в эту версию не входят.</p>"
+      },
+      {
+        type: "heading",
+        text: "Итоги"
+      },
+      {
+        type: "text",
+        html: "<p>Повторяемый механизм находится в одном месте, а бизнес-правила — у своих сущностей. Роутеры стали короткими адаптерами, репозитории используют общую сессию, сервисы доводят сценарий до результата или полного отката. Проверяемая цепочка теперь замкнута: история → контракт → сервис → репозитории → БД → HTTP-ответ и тест.</p>"
       }
     ]
   }
